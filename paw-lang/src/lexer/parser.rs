@@ -39,15 +39,7 @@ impl Parser {
 	}
 
 	fn statement(&mut self) -> ParseResult<Statement> {
-		if self.match_token(Print) {
-			return self.print_statement()
-		}
 		self.expression_statement()
-	}
-
-	fn print_statement(&mut self) -> ParseResult<Statement> {
-		let expr = self.expression()?;
-		Ok(Statement::Print(expr))
 	}
 
 	fn expression_statement(&mut self) -> ParseResult<Statement> {
@@ -258,13 +250,6 @@ mod tests {
 		assert!(parse_str("1 <= 1").is_ok());
 	}
 
-	#[test]
-	fn print_ok() {
-		assert!(parse_str("print \"Hello\"").is_ok());
-		assert!(parse_str("print true").is_ok());
-		assert!(parse_str("print 1 + 2 + 3").is_ok());
-	}
-	
 	#[test]
 	#[should_panic]
 	fn unclosed_paren_panics() {

@@ -7,18 +7,20 @@ macro_rules! scan_err {
     };
 }
 
-pub struct Scanner {
-	source: Vec<char>,
+pub struct Scanner<'src> {
+	src: &'src str,
+	chars: Vec<char>,
 	tokens: Vec<Token>,
 	start: usize,
 	current: usize,
 	line: usize,
 }
 
-impl Scanner {
-	pub fn new(source: &str) -> Self {
+impl<'src> Scanner<'src> {
+	pub fn new(src: &'src str) -> Self {
 		Self {
-			source: source.chars().collect(),
+			chars: src.chars().collect(),
+			src,
 			tokens: vec![],
 			start: 0,
 			current: 0,
@@ -70,7 +72,6 @@ impl Scanner {
 			']' => self.add_token(RightBracket),
 			',' => self.add_token(Comma),
 			';' => self.add_token(Semicolon),
-			'@' => self.add_token(At),
             
 			'+' => self.match_token('=', PlusEqual, Plus),
 			'*' => self.match_token('=', StarEqual, Star),
@@ -87,6 +88,14 @@ impl Scanner {
 			'-' => self.match_token_t('=', MinusEqual, '>', Arrow, Minus),
 			'=' => self.match_token_t('=', EqualEqual, '>', FatArrow, Equal),
 			'?' => self.match_token_t('?', QuestionQuestion, '.', QuestionDot, Question),
+
+			'&' => {
+				if self.char_match('&') {
+					self.add_token(And);
+				} else {
+					return Err(scan_err!(self.line, "unexpected '&', did you mean '&&'?"))
+				}
+			}
             
 			'/' => {
 				if self.char_match('/') {
@@ -99,13 +108,15 @@ impl Scanner {
 					self.add_token(Slash)
 				}
 			}
-
+			
 			' ' | '\r' | '\t' => {}
 			'\n' => self.line += 1,
 			'"' => self.string()?,
-
+			
 			c if c.is_ascii_digit() => self.number()?,
 			c if c.is_alphabetic() || c == '_' => self.identifier(),
+			'@' => self.decorator()?,
+
 			_ => {
 				return Err(scan_err!(self.line, "unexpected character '{}'", c))
 			}
@@ -186,7 +197,7 @@ impl Scanner {
 		}
 		self.advance();
 
-		let value: String = self.source[self.start + 1..self.current - 1]
+		let value: String = self.chars[self.start + 1..self.current - 1]
 			.iter()
 			.collect();
 
@@ -194,8 +205,24 @@ impl Scanner {
 		Ok(())
 	}
 
+	fn decorator(&mut self) -> Result<(), String> {
+		if !self.peek().is_alphabetic() && self.peek() != '_' {
+			return Err(scan_err!(self.line, "expected identifier after '@'"));
+		}
+		
+		while self.peek().is_alphanumeric() || self.peek() == '_' {
+			self.advance();
+		}
+		let value: String = self.chars[self.start + 1..self.current]
+			.iter()
+			.collect();
+
+		self.add_token_lit(Decorator, Some(DecoratorValue(value)));
+		Ok(())
+	}
+
 	fn is_at_end(&self) -> bool {
-		self.current >= self.source.len()
+		self.current >= self.chars.len()
 	}
 
 	fn is_digit(&self) -> bool {
@@ -203,36 +230,102 @@ impl Scanner {
 	}
 
 	fn current_lexeme(&self) -> String {
-		self.source[self.start..self.current].iter().collect()
+		self.chars[self.start..self.current].iter().collect()
 	}
 
 	fn peek(&self) -> char {
 		if self.is_at_end() {
 			'\0'
 		} else {
-			self.source[self.current]
+			self.chars[self.current]
 		}
 	}
 
 	fn peek_next(&self) -> char {
-		if self.current + 1 >= self.source.len() {
+		if self.current + 1 >= self.chars.len() {
 			'\0'
 		} else {
-			self.source[self.current + 1]
+			self.chars[self.current + 1]
 		}
 	}
 
 	fn advance(&mut self) -> char {
-		let c = self.source[self.current];
+		let c = self.chars[self.current];
 		self.current += 1;
 		c
 	}
 
 	fn char_match(&mut self, expected: char) -> bool {
-		if self.is_at_end() || self.source[self.current] != expected {
+		if self.is_at_end() || self.chars[self.current] != expected {
 			return false;
 		}
 		self.current += 1;
 		true
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn scan(src: &str) -> Vec<Token> {
+		Scanner::new(src).scan_tokens().expect("scan failed")
+	}
+
+	#[test]
+	fn decorator_simple() {
+		let tokens = scan("@override");
+		assert_eq!(tokens[0].token_type, Decorator);
+		assert_eq!(tokens[0].lexeme, "@override");
+		assert!(matches!(
+			&tokens[0].literal,
+			Some(DecoratorValue(n)) if n == "override"
+		));
+	}
+
+	#[test]
+	fn decorator_underscore_prefix() {
+		let tokens = scan("@_internal");
+		assert_eq!(tokens[0].token_type, Decorator);
+		assert!(matches!(
+			&tokens[0].literal,
+			Some(DecoratorValue(n)) if n == "_internal"
+		));
+	}
+
+	#[test]
+	fn decorator_with_digits() {
+		let tokens = scan("@deprecated2");
+		assert_eq!(tokens[0].token_type, Decorator);
+		assert!(matches!(
+			&tokens[0].literal,
+			Some(DecoratorValue(n)) if n == "deprecated2"
+		));
+	}
+
+	#[test]
+	fn decorator_stops_at_non_ident() {
+		let tokens = scan("@route ");
+		assert_eq!(tokens[0].token_type, Decorator);
+		assert_eq!(tokens[0].lexeme, "@route");
+		assert_eq!(tokens[1].token_type, Eof);
+	}
+
+	#[test]
+	#[should_panic]
+	fn decorator_bare_at_panics() {
+		scan("@");
+	}
+
+	#[test]
+	#[should_panic]
+	fn decorator_digit_after_at_panics() {
+		scan("@1bad");
+	}
+
+	#[test]
+	#[should_panic]
+	fn decorator_space_after_at_panics() {
+		scan("@ name");
 	}
 }

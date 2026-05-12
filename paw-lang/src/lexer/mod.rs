@@ -6,7 +6,7 @@ pub(crate) mod expr;
 use strum::EnumString;
 
 // #[rustfmt::skip]
-#[derive(Debug, Copy, Clone, PartialEq, EnumString)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumString)]
 #[strum(serialize_all = "lowercase")]
 pub enum TokenType {
 	// single character tokens
@@ -41,15 +41,17 @@ pub enum TokenType {
     True, False, Nil,
 
 	// keywords
-	KwIf, KwElse, KwFor, KwIn, KwWhile,
-	KwClass, KwTrait, KwSelf, KwSuper,
-    KwReturn, KwBreak, KwContinue,
-	KwLet, KwConst, KwFn, KwAs, KwDo, KwMatch,
-    KwAsync, KwAwait, KwThrow, KwTry, KwCatch,
-    KwType, KwEnum, KwPub,
+	If, Else, For, In, While,
+	Class, Trait, Super,
+    Return, Break, Continue,
+	Let, Const, Fn, As, Do, Match,
+    Async, Await, Throw, Try, Catch,
+    Type, Enum, Pub,
+	
+	#[strum(serialize = "self")]
+	KwSelf,
     
-	// "print" function is built-in only for now
-	Print, Eof,
+	Eof,
 }
 
 impl std::fmt::Display for TokenType {
