@@ -1,6 +1,8 @@
-[package]
-name = "paw"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = [
+    "paw-lang",
+]
+resolver = "2"
 
-[dependencies]
+[workspace.dependencies]
+thiserror = "1"

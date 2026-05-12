@@ -1,0 +1,122 @@
+#![allow(dead_code)]
+pub(crate) mod parser;
+pub(crate) mod scanner;
+pub(crate) mod expr;
+
+use strum::EnumString;
+
+// #[rustfmt::skip]
+#[derive(Debug, Copy, Clone, PartialEq, EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum TokenType {
+	// single character tokens
+	LeftParen, RightParen,
+	LeftBrace, RightBrace,
+	LeftBracket, RightBracket,
+	Comma, Semicolon, At,
+    
+	// one or two character tokens
+	Equal, EqualEqual,
+	Bang, BangEqual,
+	Greater, GreaterEqual,
+	Less, LessEqual,
+	Plus, PlusEqual,
+	Minus, MinusEqual,
+	Star, StarEqual,
+	Slash, SlashEqual,
+    Percent, PercentEqual,
+    
+    Pipe, Or, And, // and -> &&
+    Colon, ColonColon,
+    Arrow, FatArrow,
+    Dot, DotDot,
+
+    // optional
+    Question, QuestionDot, 
+    QuestionQuestion,
+    
+	// literals
+	Identifier, Decorator,
+    Str, Number,
+    True, False, Nil,
+
+	// keywords
+	KwIf, KwElse, KwFor, KwIn, KwWhile,
+	KwClass, KwTrait, KwSelf, KwSuper,
+    KwReturn, KwBreak, KwContinue,
+	KwLet, KwConst, KwFn, KwAs, KwDo, KwMatch,
+    KwAsync, KwAwait, KwThrow, KwTry, KwCatch,
+    KwType, KwEnum, KwPub,
+    
+	// "print" function is built-in only for now
+	Print, Eof,
+}
+
+impl std::fmt::Display for TokenType {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{:?}", self)
+	}
+}
+
+#[derive(Debug, Clone)]
+pub enum LiteralValue {
+	NumberValue(f64),
+	StringValue(String),
+    DecoratorValue(String),
+	True, False, Nil,
+}
+
+impl LiteralValue {
+	pub fn from_token(token: Token) -> Self {
+		match token.token_type {
+			TokenType::Number => match token.literal {
+				Some(LiteralValue::NumberValue(n)) => Self::NumberValue(n),
+				_ => panic!("Expected number literal"),
+			},
+			TokenType::Str => match token.literal {
+				Some(LiteralValue::StringValue(n)) => Self::StringValue(n),
+				_ => panic!("Expected string literal"),
+			},
+            TokenType::Decorator => match token.literal {
+                Some(LiteralValue::DecoratorValue(n)) => Self::DecoratorValue(n),
+                _ => panic!("Expected decorator literal")
+            }
+
+			TokenType::True => LiteralValue::True,
+			TokenType::False => LiteralValue::False,
+			TokenType::Nil => LiteralValue::Nil,
+
+			_ => panic!(
+				"cannot create a literal value from: '{:?}'",
+				token.token_type
+			),
+		}
+	}
+}
+
+impl std::fmt::Display for LiteralValue {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			LiteralValue::NumberValue(n) => write!(f, "{n}"),
+			LiteralValue::StringValue(s) => write!(f, "{s}"),
+			LiteralValue::DecoratorValue(s) => write!(f, "@{s}"),
+			LiteralValue::True => write!(f, "true"),
+			LiteralValue::False => write!(f, "false"),
+			LiteralValue::Nil => write!(f, "nil"),
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct Token {
+	pub lexeme: String,
+	pub literal: Option<LiteralValue>,
+	pub token_type: TokenType,
+	pub line_number: usize,
+}
+
+impl std::fmt::Display for Token {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{} {}", self.token_type, self.lexeme)
+	}
+}
