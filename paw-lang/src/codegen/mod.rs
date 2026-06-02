@@ -206,4 +206,22 @@ mod tests {
             "local x = 1\nx = 2\n"
         );
     }
+
+    #[test]
+    fn logical_and_emits_word() {
+        assert_eq!(compile("true && false"), "true and false\n");
+    }
+
+    #[test]
+    fn logical_or_emits_word() {
+        assert_eq!(compile("true || false"), "true or false\n");
+    }
+
+    #[test]
+    fn logical_mixed() {
+        assert_eq!(
+            compile("true || false && true"),
+            "true or false and true\n"
+        );
+    }
 }

@@ -27,7 +27,10 @@ impl Parser {
 
 			match statement {
 				Ok(s) => statements.push(s),
-				Err(msg) => errors.push(msg),
+				Err(msg) => {
+					errors.push(msg);
+					self.synchronize();
+				}
 			}
 		}
 
@@ -80,11 +83,14 @@ impl Parser {
 	}
 
 	fn assignment(&mut self) -> ParseResult<Expr> {
-		let expr = self.equality()?;
+		let expr = self.or()?;
 
 		if self.match_token(Equal) {
-			let _equals = self.previous();
-			let value = self.assignment()?;
+			let value = self.or()?;
+
+			if self.peek().token_type == Equal {
+				return Err("chained assignment is not allowed".to_string());
+			}
 
 			match expr {
 				Variable(name) => Ok(
@@ -95,6 +101,40 @@ impl Parser {
 		} else {
 			Ok(expr)
 		}
+	}
+
+	fn or(&mut self) -> ParseResult<Expr> {
+		let mut expr = self.and()?;
+
+		while self.match_token(Or) {
+			let operator = self.previous();
+			let right = self.and()?;
+
+			expr = Binary {
+				left: Box::from(expr),
+				operator,
+				right: Box::from(right),
+			}
+		}
+
+		Ok(expr)
+	}
+
+	fn and(&mut self) -> ParseResult<Expr> {
+		let mut expr = self.equality()?;
+
+		while self.match_token(And) {
+			let operator = self.previous();
+			let right = self.equality()?;
+
+			expr = Binary {
+				left: Box::from(expr),
+				operator,
+				right: Box::from(right),
+			}
+		}
+
+		Ok(expr)
 	}
 
 	fn equality(&mut self) -> ParseResult<Expr> {
@@ -206,6 +246,16 @@ impl Parser {
 		}
 
 		Ok(result)
+	}
+
+	fn synchronize(&mut self) {
+		while !self.is_at_end() {
+			self.advance();
+			match self.peek().token_type {
+				Let | Const => return,
+				_ => ()
+			}
+		}
 	}
 
 	fn consume(&mut self, token_type: TokenType, msg: &str) -> ParseResult<Token> {
@@ -327,5 +377,47 @@ mod tests {
 	#[should_panic]
 	fn incomplete_binary_panics() {
 		parse_str("1 +").unwrap();
+	}
+
+	#[test]
+	fn and_ok() {
+		assert!(parse_str("true && false").is_ok());
+	}
+
+	#[test]
+	fn or_ok() {
+		assert!(parse_str("true || false").is_ok());
+	}
+
+	#[test]
+	fn and_chained_ok() {
+		assert!(parse_str("true && false && true").is_ok());
+	}
+
+	#[test]
+	fn or_chained_ok() {
+		assert!(parse_str("true || false || true").is_ok());
+	}
+
+	#[test]
+	fn or_and_precedence_ok() {
+		assert!(parse_str("true || false && true").is_ok());
+	}
+
+	#[test]
+	fn logical_with_comparison_ok() {
+		assert!(parse_str("1 < 2 && 3 > 2").is_ok());
+	}
+
+	#[test]
+	#[should_panic]
+	fn incomplete_and_panics() {
+		parse_str("true &&").unwrap();
+	}
+
+	#[test]
+	#[should_panic]
+	fn incomplete_or_panics() {
+		parse_str("true ||").unwrap();
 	}
 }

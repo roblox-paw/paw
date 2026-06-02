@@ -100,12 +100,39 @@ mod tests {
     }
 
     #[test]
-    fn assign_chained() {
-        assert_eq!(ast("x = y = 3"), "(= x (= y 3))");
+    fn variable_in_binary() {
+        assert_eq!(ast("x + 1"), "(+ (var x) 1)");
     }
 
     #[test]
-    fn variable_in_binary() {
-        assert_eq!(ast("x + 1"), "(+ (var x) 1)");
+    fn logical_and() {
+        assert_eq!(ast("true && false"), "(&& true false)");
+    }
+
+    #[test]
+    fn logical_or() {
+        assert_eq!(ast("true || false"), "(|| true false)");
+    }
+
+    #[test]
+    fn or_binds_lower_than_and() {
+        assert_eq!(
+            ast("true || false && true"),
+            "(|| true (&& false true))"
+        );
+    }
+
+    #[test]
+    fn and_binds_lower_than_equality() {
+        assert_eq!(
+            ast("1 == 1 && 2 == 2"),
+            "(&& (== 1 1) (== 2 2))"
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn assign_chained() {
+        ast("x = y = 3");
     }
 }
