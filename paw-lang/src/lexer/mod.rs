@@ -26,7 +26,8 @@ pub enum TokenType {
 	Slash, SlashEqual,
     Percent, PercentEqual,
     
-    Pipe, Or, And, // and -> &&
+    Pipe, Or, // |, ||
+	And, // and -> &&
     Colon, ColonColon,
     Arrow, FatArrow,
     Dot, DotDot,

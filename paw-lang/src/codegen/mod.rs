@@ -3,7 +3,7 @@ pub(crate) mod emitter;
 pub(crate) mod statements;
 
 use crate::lexer::{LiteralValue, expr::Expr, Token, TokenType};
-use crate::codegen::{emitter::Emitter, statements::Statement};
+use crate::codegen::{emitter::Emitter, statements::{Statement, VarKind}};
 
 use std::collections::HashMap;
 use std::io;
@@ -41,6 +41,20 @@ impl<'e> Codegen<'e> {
                 self.emit_expr(expr);
                 self.emitter.newline();
             }
+            Statement::Variable { name, init, kind } => {
+                self.emitter.emit_indent();
+                self.emitter.write(match kind {
+                    VarKind::Let => "local ",
+                    VarKind::Const => "const ",
+                });
+                self.emitter.write(&name.lexeme);
+                
+                if let Some(expr) = init {
+                    self.emitter.write_spaced("=");
+                    self.emit_expr(expr);
+                }
+                self.emitter.newline();
+            }
         }
     }
 
@@ -65,6 +79,14 @@ impl<'e> Codegen<'e> {
                 self.emitter.write("(");
                 self.emit_expr(inner);
                 self.emitter.write(")");
+            }
+            Expr::Variable(name) => {
+                self.emitter.write(&name.lexeme);
+            }
+            Expr::Assign { name, value } => {
+                self.emitter.write(&name.lexeme);
+                self.emitter.write_spaced("=");
+                self.emit_expr(value);
             }
         }
     }
@@ -145,5 +167,43 @@ mod tests {
     #[test]
     fn nested_binary() {
         assert_eq!(compile("1 + 2 * 3"), "1 + 2 * 3\n");
+    }
+
+    #[test]
+    fn let_decl() {
+        assert_eq!(compile("let x = 5"), "local x = 5\n");
+    }
+
+    #[test]
+    fn let_no_init_fallback() {
+        assert_eq!(compile("let x"), "local x\n");
+    }
+
+    #[test]
+    fn const_decl() {
+        assert_eq!(compile("const x = 5"), "const x = 5\n");
+    }
+
+    #[test]
+    fn variable_ref() {
+        assert_eq!(compile("x"), "x\n");
+    }
+
+    #[test]
+    fn assign_literal() {
+        assert_eq!(compile("x = 5"), "x = 5\n");
+    }
+
+    #[test]
+    fn assign_expr() {
+        assert_eq!(compile("x = 1 + 2"), "x = 1 + 2\n");
+    }
+
+    #[test]
+    fn let_then_assign() {
+        assert_eq!(
+            compile("let x = 1\nx = 2"),
+            "local x = 1\nx = 2\n"
+        );
     }
 }

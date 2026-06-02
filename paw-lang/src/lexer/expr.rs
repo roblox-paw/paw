@@ -13,6 +13,11 @@ pub enum Expr {
         right: Box<Expr>,
     },
     Grouping(Box<Expr>),
+    Variable(Token),
+    Assign {
+        name: Token,
+        value: Box<Expr>,
+    },
 }
 
 impl std::fmt::Display for Expr {
@@ -26,6 +31,10 @@ impl std::fmt::Display for Expr {
                 write!(f, "({} {right})", operator.lexeme)
             }
             Expr::Grouping(e) => write!(f, "(group {e})"),
+            Expr::Variable(n) => write!(f, "(var {})", n.lexeme),
+            Expr::Assign { name, value } => {
+                write!(f, "(= {} {value})", name.lexeme)
+            }
         }
     }
 }
@@ -38,8 +47,10 @@ mod tests {
     fn ast(src: &str) -> String {
         let tokens = Scanner::new(src).scan_tokens().expect("scan failed");
         let stmts = Parser::new(tokens).parse().expect("parse failed");
+
         match &stmts[0] {
             crate::codegen::statements::Statement::Expression(e) => e.to_string(),
+            other => other.to_string(),
         }
     }
 
@@ -66,5 +77,35 @@ mod tests {
     #[test]
     fn grouping() {
         assert_eq!(ast("(1 + 2)"), "(group (+ 1 2))");
+    }
+
+    #[test]
+    fn variable_ref() {
+        assert_eq!(ast("x"), "(var x)");
+    }
+
+    #[test]
+    fn variable_underscore() {
+        assert_eq!(ast("_internal"), "(var _internal)");
+    }
+
+    #[test]
+    fn assign_literal() {
+        assert_eq!(ast("x = 5"), "(= x 5)");
+    }
+
+    #[test]
+    fn assign_expr() {
+        assert_eq!(ast("x = 1 + 2"), "(= x (+ 1 2))");
+    }
+
+    #[test]
+    fn assign_chained() {
+        assert_eq!(ast("x = y = 3"), "(= x (= y 3))");
+    }
+
+    #[test]
+    fn variable_in_binary() {
+        assert_eq!(ast("x + 1"), "(+ (var x) 1)");
     }
 }

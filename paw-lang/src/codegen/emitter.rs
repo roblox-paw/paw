@@ -148,4 +148,32 @@ mod tests {
         });
         assert_eq!(out, "\tlocal x = 1\n\n\tlocal y = 2\n");
     }
+
+    #[test]
+    fn write_spaced_wraps_in_single_spaces() {
+        let out = collect(|e| {
+            e.write("1");
+            e.write_spaced("+");
+            e.write("2");
+        });
+        assert_eq!(out, "1 + 2");
+    }
+
+    #[test]
+    #[should_panic]
+    fn write_to_failing_sink_panics() {
+        struct FailWrite;
+        impl io::Write for FailWrite {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                Err(io::Error::new(io::ErrorKind::BrokenPipe, "fail"))
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut sink = FailWrite;
+        let mut e = Emitter::new(&mut sink);
+        e.writeln("x");
+        e.finish().expect("io should have failed");
+    }
 }

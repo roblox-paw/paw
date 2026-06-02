@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::codegen::statements::Statement;
+use crate::codegen::statements::{Statement, VarKind};
 use super::{
 	TokenType, TokenType::*, 
 	Token, LiteralValue,
@@ -23,9 +23,9 @@ impl Parser {
 		let mut errors = vec![];
 
 		while !self.is_at_end() {
-			let statment = self.statement();
+			let statement = self.declaration();
 
-			match statment {
+			match statement {
 				Ok(s) => statements.push(s),
 				Err(msg) => errors.push(msg),
 			}
@@ -38,6 +38,34 @@ impl Parser {
 		}
 	}
 
+	fn declaration(&mut self) -> ParseResult<Statement> {
+		if self.match_token(Let) {
+			self.var_declaration(VarKind::Let)
+		} 
+		else if self.match_token(Const) {
+			self.var_declaration(VarKind::Const)
+		} 
+		else {
+			self.statement()
+		}
+	}
+
+	fn var_declaration(&mut self, kind: VarKind) -> ParseResult<Statement> {
+		let name = self.consume(Identifier, "expected variable name")?;
+
+		// todo DO NOT FORGET!!!!!
+		// when type annotations land, require init OR type annotation for `let`
+		let init = if self.match_token(Equal) {
+			Some(self.expression()?)
+		} else if kind == VarKind::Const {
+			return Err("const requires initializer".into())
+		} else {
+			None
+		};
+
+		Ok(Statement::Variable { name, init, kind })
+	}
+
 	fn statement(&mut self) -> ParseResult<Statement> {
 		self.expression_statement()
 	}
@@ -48,7 +76,25 @@ impl Parser {
 	}
 
 	fn expression(&mut self) -> ParseResult<Expr> {
-		self.equality()
+		self.assignment()
+	}
+
+	fn assignment(&mut self) -> ParseResult<Expr> {
+		let expr = self.equality()?;
+
+		if self.match_token(Equal) {
+			let _equals = self.previous();
+			let value = self.assignment()?;
+
+			match expr {
+				Variable(name) => Ok(
+					Assign { name, value: Box::from(value) }
+				),
+				_ => Err("invalid assignment target".to_string())
+			}
+		} else {
+			Ok(expr)
+		}
 	}
 
 	fn equality(&mut self) -> ParseResult<Expr> {
@@ -146,11 +192,15 @@ impl Parser {
 
 				let expr = self.expression()?;
 				self.consume(RightParen, "expected ')'")?;
-				result = Grouping(Box::from(expr));
+				result = Grouping(Box::from(expr))
 			}
 			Str | Number | True | False | Nil => {
 				self.advance();
 				result = Literal(LiteralValue::from_token(token))
+			}
+			Identifier => {
+				self.advance();
+				result = Variable(self.previous())
 			}
 			_ => return Err("expected expression".to_string()),
 		}
@@ -248,6 +298,23 @@ mod tests {
 	fn comparison_ok() {
 		assert!(parse_str("3 > 2").is_ok());
 		assert!(parse_str("1 <= 1").is_ok());
+	}
+
+	#[test]
+	fn declare_var_ok() {
+		assert!(parse_str("let x = 1").is_ok());
+		assert!(parse_str("const y = 2").is_ok());
+	}
+
+	#[test]
+	fn declare_var_fallback_ok() {
+		assert!(parse_str("let x").is_ok());
+	}
+
+	#[test]
+	#[should_panic]
+	fn declare_var_fallback_const_panics() {
+		assert!(parse_str("const y").is_ok());
 	}
 
 	#[test]
