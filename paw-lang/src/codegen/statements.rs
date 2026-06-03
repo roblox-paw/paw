@@ -43,14 +43,16 @@ impl std::fmt::Display for Statement {
                 }
                 write!(f, ")")
             }
+
             Statement::Variable { name, init, kind } => match init {
                 Some(e) => write!(f, "({kind} {} {e})", name.lexeme),
                 None => write!(f, "({kind} {})", name.lexeme),
-            },
+            }
+            
             Statement::If { predicate, then, else_block } => match else_block {
                 Some(e) => write!(f, "(if {predicate} {then} {e})"),
                 None => write!(f, "(if {predicate} {then})"),
-            },
+            }
         }
     }
 }

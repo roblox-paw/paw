@@ -1,0 +1,9 @@
+// --- Test
+let a = true && false
+let b = true || false
+let c = !true
+
+// --- Expected
+// local a = true and false
+// local b = true or false
+// local c = not true

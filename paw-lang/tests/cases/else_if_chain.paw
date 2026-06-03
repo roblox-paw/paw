@@ -1,0 +1,17 @@
+// --- Test
+if x > 10 {
+	y = 3
+} else if x > 5 {
+	y = 2
+} else {
+	y = 1
+}
+
+// --- Expected
+// if x > 10 then
+// 	y = 3
+// elseif x > 5 then
+// 	y = 2
+// else
+// 	y = 1
+// end

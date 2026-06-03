@@ -1,0 +1,13 @@
+// --- Test
+if a {
+	if b {
+		x = 1
+	}
+}
+
+// --- Expected
+// if a then
+// 	if b then
+// 		x = 1
+// 	end
+// end
