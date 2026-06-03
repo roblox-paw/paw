@@ -78,6 +78,36 @@ impl<'e> Codegen<'e> {
                 self.emit_else_chain(else_block);
                 self.emitter.writeln("end");
             }
+
+            Statement::Loop(body) => {
+                self.emitter.emit_indent();
+                self.emitter.writeln("task.spawn(function()");
+                self.emitter.indent();
+
+                self.emitter.writeln("while true do");
+                self.emitter.indent();
+                self.emit_stmt(body);
+                self.emitter.dedent();
+
+                self.emitter.writeln("end");
+                self.emitter.dedent();
+                self.emitter.writeln("end)");
+            }
+
+            Statement::While { condition, body } => {
+                self.emitter.emit_indent();
+                self.emitter.write("while ");
+                self.emit_expr(condition);
+
+                self.emitter.write(" do");
+                self.emitter.newline();
+
+                self.emitter.indent();
+                self.emit_stmt(body);
+                self.emitter.dedent();
+                
+                self.emitter.writeln("end");
+            }
         }
     }
 
@@ -372,6 +402,34 @@ mod tests {
         assert_eq!(
             compile("if x > 5 { y = 1 } else if x > 0 { y = 2 } else { y = 3 }"),
             "if x > 5 then\n\ty = 1\nelseif x > 0 then\n\ty = 2\nelse\n\ty = 3\nend\n"
+        );
+    }
+
+    #[test]
+    fn while_basic() {
+        assert_eq!(
+            compile("while x < 10 { x = x + 1 }"),
+            "while x < 10 do\n\tx = x + 1\nend\n"
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn while_missing_condition_panics() {
+        compile("while { x = 1 }");
+    }
+
+    #[test]
+    #[should_panic]
+    fn while_missing_body_panics() {
+        compile("while x > 0");
+    }
+
+    #[test]
+    fn loop_basic() {
+        assert_eq!(
+            compile("loop { x = x + 1 }"),
+            "task.spawn(function()\n\twhile true do\n\t\tx = x + 1\n\tend\nend)\n"
         );
     }
 }

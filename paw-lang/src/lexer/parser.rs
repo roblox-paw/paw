@@ -83,6 +83,12 @@ impl Parser {
 		if self.match_token(If) {
 			self.if_statement()
 		}
+		else if self.match_token(While) {
+			self.while_statement()
+		}
+		else if self.match_token(Loop) {
+			self.loop_statement()
+		}
 		else {
 			self.expression_statement()
 		}
@@ -126,6 +132,24 @@ impl Parser {
 		Ok(Statement::If { predicate, then, else_block })
 	}
 
+	fn while_statement(&mut self) -> ParseResult<Statement> {
+		if self.peek().token_type == LeftBrace || self.is_at_end() {
+			return Err(ParseError::WhileMissingCondition {
+				span: self.peek().span()
+			});
+		}
+
+		let condition = self.expression()?;
+		let body = Box::from(self.block()?);
+		Ok(Statement::While { condition, body })
+	}
+
+	// basically translates loop { ... } -> 'while true do ... end' that is wrapped in task.spawn()
+	fn loop_statement(&mut self) -> ParseResult<Statement> {
+		let body = Box::from(self.block()?);
+		Ok(Statement::Loop(body))
+	} 
+	
 	fn expression_statement(&mut self) -> ParseResult<Statement> {
 		let expr = self.expression()?;
 		match &expr {
@@ -334,7 +358,7 @@ impl Parser {
 			self.advance();
 			
 			match self.peek().token_type {
-				Let | Const | If => return,
+				Let | Const | If | While | Loop => return,
 				_ => ()
 			}
 		}

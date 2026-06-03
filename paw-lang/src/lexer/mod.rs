@@ -44,7 +44,7 @@ pub enum TokenType {
 
 	// keywords
 	If, Else, For, In, While,
-	Class, Trait, Super,
+	Loop, Class, Trait, Super,
     Return, Break, Continue,
 	Let, Const, Fn, As, Do, Match,
     Async, Await, Throw, Try, Catch,

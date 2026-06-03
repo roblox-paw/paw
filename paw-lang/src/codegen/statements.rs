@@ -21,6 +21,11 @@ pub enum Statement {
         then: Box<Statement>,
         else_block: Option<Box<Statement>>,
     },
+    Loop(Box<Statement>),
+    While {
+        condition: Expr,
+        body: Box<Statement>,
+    },
 }
 
 impl std::fmt::Display for VarKind {
@@ -52,6 +57,11 @@ impl std::fmt::Display for Statement {
             Statement::If { predicate, then, else_block } => match else_block {
                 Some(e) => write!(f, "(if {predicate} {then} {e})"),
                 None => write!(f, "(if {predicate} {then})"),
+            }
+            
+            Statement::Loop(b) => write!(f, "(loop {b})"),
+            Statement::While { condition, body } => {
+                write!(f, "(while {condition} {body})")
             }
         }
     }

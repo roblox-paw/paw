@@ -1,0 +1,9 @@
+// --- Test
+while x < 10 {
+	x = x + 1
+}
+
+// --- Expected
+// while x < 10 do
+// 	x = x + 1
+// end

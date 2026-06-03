@@ -146,6 +146,16 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    #[error("'while' requires a condition before the body")]
+    #[diagnostic(
+        code(paw::parser::while_missing_condition),
+        help("write a condition before '{{'")
+    )]
+    WhileMissingCondition {
+        #[label("condition expected here, found '{{'")]
+        span: SourceSpan,
+    },
+
     #[error("expression has no effect")]
     #[diagnostic(
         code(paw::parser::expression_has_no_effect),
