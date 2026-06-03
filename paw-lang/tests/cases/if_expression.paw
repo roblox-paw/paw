@@ -1,0 +1,5 @@
+// --- Test
+let x = if true { "Win" } else { "Lose" }
+
+// --- Expected
+// local x = if true then "Win" else "Lose"
