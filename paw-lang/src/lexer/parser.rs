@@ -76,7 +76,37 @@ impl Parser {
 	}
 
 	fn statement(&mut self) -> ParseResult<Statement> {
-		self.expression_statement()
+		if self.match_token(If) {
+			self.if_statement()
+		}
+		else {
+			self.expression_statement()
+		}
+	}
+
+	fn block(&mut self) -> ParseResult<Statement> {
+		self.consume(LeftBrace)?;
+		let mut statements = vec![];
+
+		while !self.is_at_end() && self.peek().token_type != RightBrace {
+			statements.push(self.declaration()?);
+		}
+
+		self.consume(RightBrace)?;
+		Ok(Statement::Block(statements))
+	}
+	
+	fn if_statement(&mut self) -> ParseResult<Statement> {
+		let predicate = self.expression()?;
+		let then = Box::from(self.block()?);
+
+		let else_block = if self.match_token(Else) {
+			Some(Box::from(self.block()?))
+		} else {
+			None
+		};
+
+		Ok(Statement::If { predicate, then, else_block })
 	}
 
 	fn expression_statement(&mut self) -> ParseResult<Statement> {
@@ -262,7 +292,7 @@ impl Parser {
 			self.advance();
 			
 			match self.peek().token_type {
-				Let | Const => return,
+				Let | Const | If => return,
 				_ => ()
 			}
 		}
@@ -438,5 +468,32 @@ mod tests {
 	#[should_panic]
 	fn incomplete_or_panics() {
 		parse_str("true ||").unwrap();
+	}
+
+	#[test]
+	fn if_ok() {
+		assert!(parse_str("if true { 1 }").is_ok());
+	}
+
+	#[test]
+	fn if_else_ok() {
+		assert!(parse_str("if true { 1 } else { 2 }").is_ok());
+	}
+
+	#[test]
+	fn if_nested_ok() {
+		assert!(parse_str("if true { if false { 1 } }").is_ok());
+	}
+
+	#[test]
+	#[should_panic]
+	fn bare_block_panics() {
+		parse_str("{ 1 }").unwrap();
+	}
+
+	#[test]
+	#[should_panic]
+	fn if_missing_brace_panics() {
+		parse_str("if true 1").unwrap();
 	}
 }

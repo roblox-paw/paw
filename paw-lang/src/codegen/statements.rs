@@ -10,10 +10,16 @@ pub enum VarKind {
 #[derive(Debug)]
 pub enum Statement {
     Expression(Expr),
+    Block(Vec<Statement>),
     Variable {
         name: Token,
         init: Option<Expr>,
         kind: VarKind,
+    },
+    If {
+        predicate: Expr,
+        then: Box<Statement>,
+        else_block: Option<Box<Statement>>,
     },
 }
 
@@ -30,10 +36,21 @@ impl std::fmt::Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Statement::Expression(e) => write!(f, "(stmt {e})"),
+            Statement::Block(statements) => {
+                write!(f, "(block")?;
+                for s in statements {
+                    write!(f, " {s}")?;
+                }
+                write!(f, ")")
+            }
             Statement::Variable { name, init, kind } => match init {
                 Some(e) => write!(f, "({kind} {} {e})", name.lexeme),
                 None => write!(f, "({kind} {})", name.lexeme),
-            }
+            },
+            Statement::If { predicate, then, else_block } => match else_block {
+                Some(e) => write!(f, "(if {predicate} {then} {e})"),
+                None => write!(f, "(if {predicate} {then})"),
+            },
         }
     }
 }

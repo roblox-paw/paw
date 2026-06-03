@@ -41,6 +41,13 @@ impl<'e> Codegen<'e> {
                 self.emit_expr(expr);
                 self.emitter.newline();
             }
+
+            Statement::Block(stmts) => {
+                for s in stmts {
+                    self.emit_stmt(s);
+                }
+            }
+
             Statement::Variable { name, init, kind } => {
                 self.emitter.emit_indent();
                 self.emitter.write(match kind {
@@ -48,12 +55,33 @@ impl<'e> Codegen<'e> {
                     VarKind::Const => "const ",
                 });
                 self.emitter.write(&name.lexeme);
-                
+
                 if let Some(expr) = init {
                     self.emitter.write_spaced("=");
                     self.emit_expr(expr);
                 }
                 self.emitter.newline();
+            }
+
+            Statement::If { predicate, then, else_block } => {
+                self.emitter.emit_indent();
+                self.emitter.write("if ");
+                self.emit_expr(predicate);
+
+                self.emitter.write(" then");
+                self.emitter.newline();
+
+                self.emitter.indent();
+                self.emit_stmt(then);
+                self.emitter.dedent();
+
+                if let Some(else_stmt) = else_block {
+                    self.emitter.writeln("else");
+                    self.emitter.indent();
+                    self.emit_stmt(else_stmt);
+                    self.emitter.dedent();
+                }
+                self.emitter.writeln("end");
             }
         }
     }
@@ -66,6 +94,7 @@ impl<'e> Codegen<'e> {
                 self.emitter.write_spaced(self.op(operator));
                 self.emit_expr(right);
             }
+
             Expr::Unary { operator, right } => {
                 let op = self.op(operator);
                 self.emitter.write(op);
@@ -75,14 +104,17 @@ impl<'e> Codegen<'e> {
                 }
                 self.emit_expr(right);
             }
+
             Expr::Grouping(inner) => {
                 self.emitter.write("(");
                 self.emit_expr(inner);
                 self.emitter.write(")");
             }
+
             Expr::Variable(name) => {
                 self.emitter.write(&name.lexeme);
             }
+
             Expr::Assign { name, value } => {
                 self.emitter.write(&name.lexeme);
                 self.emitter.write_spaced("=");
@@ -222,6 +254,30 @@ mod tests {
         assert_eq!(
             compile("true || false && true"),
             "true or false and true\n"
+        );
+    }
+
+    #[test]
+    fn if_no_else() {
+        assert_eq!(
+            compile("if true { 1 }"),
+            "if true then\n\t1\nend\n" // it's impossible, but whatever, I'll fix it.
+        );
+    }
+
+    #[test]
+    fn if_with_else() {
+        assert_eq!(
+            compile("if true { 1 } else { 2 }"),
+            "if true then\n\t1\nelse\n\t2\nend\n" // same thing here as the previous one
+        );
+    }
+
+    #[test]
+    fn if_block_multiple_stmts() {
+        assert_eq!(
+            compile("if true { let x = 1\nx = 2 }"),
+            "if true then\n\tlocal x = 1\n\tx = 2\nend\n"
         );
     }
 }
