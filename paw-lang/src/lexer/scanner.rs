@@ -1,11 +1,6 @@
 use super::{LiteralValue::*, TokenType::*, *};
+use crate::core::LexError;
 use std::str::FromStr;
-
-macro_rules! scan_err {
-    ($line:expr, $fmt:literal $(, $args:expr)*) => {
-        format!(concat!("Line {}: ", $fmt), $line $(, $args)*)
-    };
-}
 
 pub struct Scanner<'src> {
 	src: &'src str,
@@ -28,8 +23,8 @@ impl<'src> Scanner<'src> {
 		}
 	}
 
-	pub fn scan_tokens(mut self) -> Result<Vec<Token>, String> {
-		let mut errors = vec![];
+	pub fn scan_tokens(mut self) -> Result<Vec<Token>, Vec<LexError>> {
+		let mut errors: Vec<LexError> = vec![];
 
 		while !self.is_at_end() {
 			self.start = self.current;
@@ -47,20 +42,13 @@ impl<'src> Scanner<'src> {
 		});
 
 		if !errors.is_empty() {
-			let mut joined = String::new();
-
-			for error in errors {
-				joined.push_str(&error);
-				// joined.push('\n');
-			}
-
-			return Err(joined);
+			return Err(errors);
 		}
 
 		Ok(self.tokens)
 	}
 
-	fn scan_token(&mut self) -> Result<(), String> {
+	fn scan_token(&mut self) -> Result<(), LexError> {
 		let c = self.advance();
 
 		match c {
@@ -93,7 +81,7 @@ impl<'src> Scanner<'src> {
 				if self.char_match('&') {
 					self.add_token(And);
 				} else {
-					return Err(scan_err!(self.line, "unexpected '&', did you mean '&&'?"))
+					return Err(LexError::SingleAmpersand { line: self.line })
 				}
 			}
             
@@ -118,7 +106,7 @@ impl<'src> Scanner<'src> {
 			'@' => self.decorator()?,
 
 			_ => {
-				return Err(scan_err!(self.line, "unexpected character '{}'", c))
+				return Err(LexError::UnexpectedChar { ch: c, line: self.line })
 			}
 		}
 
@@ -161,7 +149,7 @@ impl<'src> Scanner<'src> {
 		self.add_token(token_type)
 	}
 
-	fn number(&mut self) -> Result<(), String> {
+	fn number(&mut self) -> Result<(), LexError> {
 		while self.is_digit() {
 			self.advance();
 		}
@@ -176,13 +164,13 @@ impl<'src> Scanner<'src> {
 		let s = self.current_lexeme();
 		let value = s
 			.parse::<f64>()
-			.map_err(|_| scan_err!(self.line, "could not parse number - {}", s))?;
+			.map_err(|_| LexError::InvalidNumber { text: s.clone(), line: self.line })?;
 
 		self.add_token_lit(Number, Some(NumberValue(value)));
 		Ok(())
 	}
 
-	fn string(&mut self) -> Result<(), String> {
+	fn string(&mut self) -> Result<(), LexError> {
 		let start_line = self.line;
 
 		while self.peek() != '"' && !self.is_at_end() {
@@ -193,7 +181,7 @@ impl<'src> Scanner<'src> {
 		}
 
 		if self.is_at_end() {
-			return Err(scan_err!(start_line, "unterminated string"));
+			return Err(LexError::UnterminatedString { line: start_line });
 		}
 		self.advance();
 
@@ -205,9 +193,9 @@ impl<'src> Scanner<'src> {
 		Ok(())
 	}
 
-	fn decorator(&mut self) -> Result<(), String> {
+	fn decorator(&mut self) -> Result<(), LexError> {
 		if !self.peek().is_alphabetic() && self.peek() != '_' {
-			return Err(scan_err!(self.line, "expected identifier after '@'"));
+			return Err(LexError::ExpectedIdentAfterAt { line: self.line });
 		}
 		
 		while self.peek().is_alphanumeric() || self.peek() == '_' {

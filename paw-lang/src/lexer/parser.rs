@@ -1,12 +1,13 @@
 #![allow(dead_code)]
 use crate::codegen::statements::{Statement, VarKind};
+use crate::core::ParseError;
 use super::{
-	TokenType, TokenType::*, 
+	TokenType, TokenType::*,
 	Token, LiteralValue,
 	expr::{Expr, Expr::*}
 };
 
-type ParseResult<T> = Result<T, String>;
+type ParseResult<T> = Result<T, ParseError>;
 
 pub struct Parser {
 	tokens: Vec<Token>,
@@ -18,7 +19,7 @@ impl Parser {
 		Self { tokens, current: 0 }
 	}
 
-	pub fn parse(&mut self) -> ParseResult<Vec<Statement>> {
+	pub fn parse(&mut self) -> Result<Vec<Statement>, Vec<ParseError>> {
 		let mut statements = vec![];
 		let mut errors = vec![];
 
@@ -27,8 +28,8 @@ impl Parser {
 
 			match statement {
 				Ok(s) => statements.push(s),
-				Err(msg) => {
-					errors.push(msg);
+				Err(e) => {
+					errors.push(e);
 					self.synchronize();
 				}
 			}
@@ -37,7 +38,7 @@ impl Parser {
 		if errors.is_empty() {
 			Ok(statements)
 		} else {
-			Err(errors.join("\n"))
+			Err(errors)
 		}
 	}
 
@@ -61,7 +62,7 @@ impl Parser {
 		let init = if self.match_token(Equal) {
 			Some(self.expression()?)
 		} else if kind == VarKind::Const {
-			return Err("const requires initializer".into())
+			return Err(ParseError::ConstRequiresInitializer)
 		} else {
 			None
 		};
@@ -89,14 +90,14 @@ impl Parser {
 			let value = self.or()?;
 
 			if self.peek().token_type == Equal {
-				return Err("chained assignment is not allowed".to_string());
+				return Err(ParseError::ChainedAssignment);
 			}
 
 			match expr {
 				Variable(name) => Ok(
 					Assign { name, value: Box::from(value) }
 				),
-				_ => Err("invalid assignment target".to_string())
+				_ => Err(ParseError::InvalidAssignTarget)
 			}
 		} else {
 			Ok(expr)
@@ -242,7 +243,7 @@ impl Parser {
 				self.advance();
 				result = Variable(self.previous())
 			}
-			_ => return Err("expected expression".to_string()),
+			_ => return Err(ParseError::ExpectedExpression),
 		}
 
 		Ok(result)
@@ -258,11 +259,11 @@ impl Parser {
 		}
 	}
 
-	fn consume(&mut self, token_type: TokenType, msg: &str) -> ParseResult<Token> {
+	fn consume(&mut self, token_type: TokenType, msg: &'static str) -> ParseResult<Token> {
 		if self.peek().token_type == token_type {
 			Ok(self.advance())
 		} else {
-			Err(msg.to_string())
+			Err(ParseError::Expected { msg })
 		}
 	}
 
@@ -312,11 +313,12 @@ impl Parser {
 mod tests {
 	use crate::{
 		lexer::scanner::Scanner,
-		lexer::parser::{Parser, ParseResult},
+		lexer::parser::Parser,
+		core::ParseError,
 		codegen::statements::Statement
 	};
 
-	fn parse_str(src: &str) -> ParseResult<Vec<Statement>> {
+	fn parse_str(src: &str) -> Result<Vec<Statement>, Vec<ParseError>> {
 		let tokens = Scanner::new(src).scan_tokens().expect("scan failed");
 		let result = Parser::new(tokens).parse();
 		// println!("{:?}", result);
