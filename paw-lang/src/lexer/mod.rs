@@ -3,6 +3,7 @@ pub(crate) mod parser;
 pub(crate) mod scanner;
 pub(crate) mod expr;
 
+use miette::SourceSpan;
 use strum::EnumString;
 
 // #[rustfmt::skip]
@@ -115,7 +116,13 @@ pub struct Token {
 	pub lexeme: String,
 	pub literal: Option<LiteralValue>,
 	pub token_type: TokenType,
-	pub line_number: usize,
+	pub offset: u32,
+}
+
+impl Token {
+	pub fn span(&self) -> SourceSpan {
+		(self.offset as usize, self.lexeme.len()).into()
+	}
 }
 
 impl std::fmt::Display for Token {

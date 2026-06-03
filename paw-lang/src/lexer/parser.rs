@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use crate::codegen::statements::{Statement, VarKind};
-use crate::core::ParseError;
+use crate::core::{CompileErrors, ParseError};
+
 use super::{
 	TokenType, TokenType::*,
 	Token, LiteralValue,
@@ -19,9 +20,9 @@ impl Parser {
 		Self { tokens, current: 0 }
 	}
 
-	pub fn parse(&mut self) -> Result<Vec<Statement>, Vec<ParseError>> {
+	pub fn parse(&mut self) -> Result<Vec<Statement>, CompileErrors<ParseError>> {
 		let mut statements = vec![];
-		let mut errors = vec![];
+		let mut errors: Vec<ParseError> = vec![];
 
 		while !self.is_at_end() {
 			let statement = self.declaration();
@@ -38,7 +39,7 @@ impl Parser {
 		if errors.is_empty() {
 			Ok(statements)
 		} else {
-			Err(errors)
+			Err(CompileErrors::new(errors))
 		}
 	}
 
@@ -55,15 +56,19 @@ impl Parser {
 	}
 
 	fn var_declaration(&mut self, kind: VarKind) -> ParseResult<Statement> {
-		let name = self.consume(Identifier, "expected variable name")?;
+		let name = self.consume(Identifier)?;
 
 		// todo DO NOT FORGET!!!!!
 		// when type annotations land, require init OR type annotation for `let`
 		let init = if self.match_token(Equal) {
 			Some(self.expression()?)
-		} else if kind == VarKind::Const {
-			return Err(ParseError::ConstRequiresInitializer)
-		} else {
+		} 
+		else if kind == VarKind::Const {
+			return Err(ParseError::ConstRequiresInitializer {
+				span: self.previous().span(),
+			})
+		} 
+		else {
 			None
 		};
 
@@ -86,18 +91,19 @@ impl Parser {
 	fn assignment(&mut self) -> ParseResult<Expr> {
 		let expr = self.or()?;
 
-		if self.match_token(Equal) {
+		if self.peek().token_type == Equal {
+			let eq_tok = self.advance();
 			let value = self.or()?;
 
 			if self.peek().token_type == Equal {
-				return Err(ParseError::ChainedAssignment);
+				return Err(ParseError::ChainedAssignment {
+					span: self.peek().span()
+				});
 			}
 
 			match expr {
-				Variable(name) => Ok(
-					Assign { name, value: Box::from(value) }
-				),
-				_ => Err(ParseError::InvalidAssignTarget)
+				Variable(name) => Ok(Assign {name, value: Box::from(value) }),
+				_ => Err(ParseError::InvalidAssignTarget { span: eq_tok.span() }),
 			}
 		} else {
 			Ok(expr)
@@ -232,7 +238,7 @@ impl Parser {
 				self.advance();
 
 				let expr = self.expression()?;
-				self.consume(RightParen, "expected ')'")?;
+				self.consume(RightParen)?;
 				result = Grouping(Box::from(expr))
 			}
 			Str | Number | True | False | Nil => {
@@ -243,7 +249,9 @@ impl Parser {
 				self.advance();
 				result = Variable(self.previous())
 			}
-			_ => return Err(ParseError::ExpectedExpression),
+			_ => return Err(ParseError::ExpectedExpression {
+				span: self.peek().span()
+			}),
 		}
 
 		Ok(result)
@@ -252,6 +260,7 @@ impl Parser {
 	fn synchronize(&mut self) {
 		while !self.is_at_end() {
 			self.advance();
+			
 			match self.peek().token_type {
 				Let | Const => return,
 				_ => ()
@@ -259,22 +268,30 @@ impl Parser {
 		}
 	}
 
-	fn consume(&mut self, token_type: TokenType, msg: &'static str) -> ParseResult<Token> {
+	fn consume(&mut self, token_type: TokenType) -> ParseResult<Token> {
 		if self.peek().token_type == token_type {
 			Ok(self.advance())
-		} else {
-			Err(ParseError::Expected { msg })
+		}
+		else {
+			Err(ParseError::ExpectedToken {
+				expected: token_type,
+				found: self.peek().token_type,
+				span: self.peek().span(),
+				advice: None,
+			})
 		}
 	}
 
 	fn match_token(&mut self, token_type: TokenType) -> bool {
 		if self.is_at_end() {
 			false
-		} else {
+		} 
+		else {
 			if self.peek().token_type == token_type {
 				self.advance();
 				true
-			} else {
+			} 
+			else {
 				false
 			}
 		}
@@ -314,11 +331,11 @@ mod tests {
 	use crate::{
 		lexer::scanner::Scanner,
 		lexer::parser::Parser,
-		core::ParseError,
+		core::{CompileErrors, ParseError},
 		codegen::statements::Statement
 	};
 
-	fn parse_str(src: &str) -> Result<Vec<Statement>, Vec<ParseError>> {
+	fn parse_str(src: &str) -> Result<Vec<Statement>, CompileErrors<ParseError>> {
 		let tokens = Scanner::new(src).scan_tokens().expect("scan failed");
 		let result = Parser::new(tokens).parse();
 		// println!("{:?}", result);

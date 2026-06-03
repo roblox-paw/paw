@@ -1,5 +1,6 @@
 use super::{LiteralValue::*, TokenType::*, *};
-use crate::core::LexError;
+use crate::core::{CompileErrors, LexError};
+use miette::SourceSpan;
 use std::str::FromStr;
 
 pub struct Scanner<'src> {
@@ -23,7 +24,7 @@ impl<'src> Scanner<'src> {
 		}
 	}
 
-	pub fn scan_tokens(mut self) -> Result<Vec<Token>, Vec<LexError>> {
+	pub fn scan_tokens(mut self) -> Result<Vec<Token>, CompileErrors<LexError>> {
 		let mut errors: Vec<LexError> = vec![];
 
 		while !self.is_at_end() {
@@ -38,11 +39,11 @@ impl<'src> Scanner<'src> {
 			token_type: Eof,
 			lexeme: String::new(),
 			literal: None,
-			line_number: self.line,
+			offset: self.byte_offset(self.current) as u32,
 		});
 
 		if !errors.is_empty() {
-			return Err(errors);
+			return Err(CompileErrors::new(errors));
 		}
 
 		Ok(self.tokens)
@@ -81,7 +82,7 @@ impl<'src> Scanner<'src> {
 				if self.char_match('&') {
 					self.add_token(And);
 				} else {
-					return Err(LexError::SingleAmpersand { line: self.line })
+					return Err(LexError::SingleAmpersand { span: self.current_span() })
 				}
 			}
             
@@ -106,7 +107,9 @@ impl<'src> Scanner<'src> {
 			'@' => self.decorator()?,
 
 			_ => {
-				return Err(LexError::UnexpectedChar { ch: c, line: self.line })
+				return Err(LexError::UnexpectedChar {
+					ch: c, span: self.current_span()
+				})
 			}
 		}
 
@@ -123,7 +126,7 @@ impl<'src> Scanner<'src> {
 			token_type,
 			lexeme,
 			literal,
-			line_number: self.line,
+			offset: self.byte_offset(self.start) as u32,
 		})
 	}
 
@@ -136,6 +139,7 @@ impl<'src> Scanner<'src> {
 		let t = if self.char_match(a) { ya }
 		        else if self.char_match(b) { yb }
 		        else { no };
+				
 		self.add_token(t)
 	}
 
@@ -164,15 +168,16 @@ impl<'src> Scanner<'src> {
 		let s = self.current_lexeme();
 		let value = s
 			.parse::<f64>()
-			.map_err(|_| LexError::InvalidNumber { text: s.clone(), line: self.line })?;
+			.map_err(|_| LexError::InvalidNumber {
+				text: s.clone(),
+				span: self.current_span()
+			})?;
 
 		self.add_token_lit(Number, Some(NumberValue(value)));
 		Ok(())
 	}
 
 	fn string(&mut self) -> Result<(), LexError> {
-		let start_line = self.line;
-
 		while self.peek() != '"' && !self.is_at_end() {
 			if self.peek() == '\n' {
 				self.line += 1;
@@ -181,7 +186,9 @@ impl<'src> Scanner<'src> {
 		}
 
 		if self.is_at_end() {
-			return Err(LexError::UnterminatedString { line: start_line });
+			return Err(LexError::UnterminatedString {
+				span: self.current_span()
+			});
 		}
 		self.advance();
 
@@ -195,7 +202,9 @@ impl<'src> Scanner<'src> {
 
 	fn decorator(&mut self) -> Result<(), LexError> {
 		if !self.peek().is_alphabetic() && self.peek() != '_' {
-			return Err(LexError::ExpectedIdentAfterAt { line: self.line });
+			return Err(LexError::ExpectedIdentAfterAt {
+				span: self.current_span()
+			});
 		}
 		
 		while self.peek().is_alphanumeric() || self.peek() == '_' {
@@ -207,6 +216,19 @@ impl<'src> Scanner<'src> {
 
 		self.add_token_lit(Decorator, Some(DecoratorValue(value)));
 		Ok(())
+	}
+
+	fn byte_offset(&self, char_idx: usize) -> usize {
+		self.chars[..char_idx]
+			.iter()
+			.map(|c| c.len_utf8())
+			.sum()
+	}
+
+	fn current_span(&self) -> SourceSpan {
+		let start = self.byte_offset(self.start);
+		let len = self.byte_offset(self.current) - start;
+		(start, len).into()
 	}
 
 	fn is_at_end(&self) -> bool {
