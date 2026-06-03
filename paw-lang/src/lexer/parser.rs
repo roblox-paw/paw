@@ -85,24 +85,37 @@ impl Parser {
 	}
 
 	fn block(&mut self) -> ParseResult<Statement> {
-		self.consume(LeftBrace)?;
+		self.consume_with(LeftBrace, "add an opening '{' to start the block")?;
 		let mut statements = vec![];
 
 		while !self.is_at_end() && self.peek().token_type != RightBrace {
 			statements.push(self.declaration()?);
 		}
 
-		self.consume(RightBrace)?;
+		self.consume_with(RightBrace, "add a closing '}' to end the block")?;
 		Ok(Statement::Block(statements))
 	}
 	
 	fn if_statement(&mut self) -> ParseResult<Statement> {
+		if self.peek().token_type == LeftBrace || self.is_at_end() {
+			return Err(ParseError::IfMissingCondition {
+				span: self.peek().span()
+			});
+		}
+
 		let predicate = self.expression()?;
 		let then = Box::from(self.block()?);
 
 		let else_block = if self.match_token(Else) {
-			Some(Box::from(self.block()?))
-		} else {
+			let stmt = if self.match_token(If) {
+				self.if_statement()?
+			}
+			else {
+				self.block()?
+			};
+			Some(Box::from(stmt))
+		}
+		else {
 			None
 		};
 
@@ -299,15 +312,23 @@ impl Parser {
 	}
 
 	fn consume(&mut self, token_type: TokenType) -> ParseResult<Token> {
+		self.consume_with(token_type, "")
+	}
+
+	fn consume_with(&mut self, token_type: TokenType, advice: impl Into<String>) -> ParseResult<Token> {
 		if self.peek().token_type == token_type {
 			Ok(self.advance())
-		}
+		} 
 		else {
 			Err(ParseError::ExpectedToken {
 				expected: token_type,
 				found: self.peek().token_type,
 				span: self.peek().span(),
-				advice: None,
+				
+				advice: {
+					let s = advice.into();
+					if s.is_empty() { None } else { Some(s) }
+				},
 			})
 		}
 	}

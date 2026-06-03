@@ -75,13 +75,35 @@ impl<'e> Codegen<'e> {
                 self.emit_stmt(then);
                 self.emitter.dedent();
 
-                if let Some(else_stmt) = else_block {
-                    self.emitter.writeln("else");
-                    self.emitter.indent();
-                    self.emit_stmt(else_stmt);
-                    self.emitter.dedent();
-                }
+                self.emit_else_chain(else_block);
                 self.emitter.writeln("end");
+            }
+        }
+    }
+
+    fn emit_else_chain(&mut self, else_block: &Option<Box<Statement>>) {
+        let Some(stmt) = else_block else { return };
+        match stmt.as_ref() {
+            Statement::If { predicate, then, else_block } => {
+                self.emitter.emit_indent();
+                self.emitter.write("elseif ");
+                self.emit_expr(predicate);
+
+                self.emitter.write(" then");
+                self.emitter.newline();
+
+                self.emitter.indent();
+                self.emit_stmt(then);
+                self.emitter.dedent();
+
+                self.emit_else_chain(else_block);
+            }
+            
+            _ => {
+                self.emitter.writeln("else");
+                self.emitter.indent();
+                self.emit_stmt(stmt);
+                self.emitter.dedent();
             }
         }
     }
@@ -278,6 +300,22 @@ mod tests {
         assert_eq!(
             compile("if true { let x = 1\nx = 2 }"),
             "if true then\n\tlocal x = 1\n\tx = 2\nend\n"
+        );
+    }
+
+    #[test]
+    fn else_if_emits_elseif() {
+        assert_eq!(
+            compile("if true { 1 } else if false { 2 }"),
+            "if true then\n\t1\nelseif false then\n\t2\nend\n"
+        );
+    }
+
+    #[test]
+    fn else_if_chain_emits_elseif() {
+        assert_eq!(
+            compile("if true { 1 } else if false { 2 } else { 3 }"),
+            "if true then\n\t1\nelseif false then\n\t2\nelse\n\t3\nend\n"
         );
     }
 }

@@ -125,6 +125,16 @@ pub enum ParseError {
         #[help]
         advice: Option<String>,
     },
+
+    #[error("'if' requires a condition before the body")]
+    #[diagnostic(
+        code(paw::parser::if_missing_condition),
+        help("write a condition before '{{'")
+    )]
+    IfMissingCondition {
+        #[label("condition expected here, found '{{'")]
+        span: SourceSpan,
+    },
 }
 
 #[cfg(test)]
