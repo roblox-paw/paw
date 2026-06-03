@@ -282,6 +282,27 @@ impl Parser {
 
 		let result;
 		match token.token_type {
+			If => {
+				self.advance();
+				let predicate = Box::from(self.expression()?);
+
+				self.consume_with(LeftBrace, "add '{' after the condition")?;
+				let then_expr = Box::from(self.expression()?);
+				self.consume(RightBrace)?;
+
+				if !self.match_token(Else) {
+					return Err(ParseError::IfExprRequiresElse {
+						span: self.previous().span()
+					});
+				}
+
+				self.consume_with(LeftBrace, "add '{' after the else keyword")?;
+				let else_expr = Box::from(self.expression()?);
+				self.consume(RightBrace)?;
+
+				result = IfExpr { predicate, then_expr, else_expr }
+			}
+
 			LeftParen => {
 				self.advance();
 
@@ -289,14 +310,17 @@ impl Parser {
 				self.consume(RightParen)?;
 				result = Grouping(Box::from(expr))
 			}
+
 			Str | Number | True | False | Nil => {
 				self.advance();
 				result = Literal(LiteralValue::from_token(token))
 			}
+
 			Identifier => {
 				self.advance();
 				result = Variable(self.previous())
 			}
+
 			_ => return Err(ParseError::ExpectedExpression {
 				span: self.peek().span()
 			}),

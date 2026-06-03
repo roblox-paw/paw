@@ -136,6 +136,16 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    #[error("if expression requires an 'else' branch")]
+    #[diagnostic(
+        code(paw::parser::if_expr_requires_else),
+        help("'if' used as a value must always produce one - add '}} else {{ ... }}'")
+    )]
+    IfExprRequiresElse {
+        #[label("this 'if' has no 'else' statement")]
+        span: SourceSpan,
+    },
+
     #[error("expression has no effect")]
     #[diagnostic(
         code(paw::parser::expression_has_no_effect),

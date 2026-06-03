@@ -18,6 +18,11 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+    IfExpr {
+        predicate: Box<Expr>,
+        then_expr: Box<Expr>,
+        else_expr: Box<Expr>,
+    },
 }
 
 impl std::fmt::Display for Expr {
@@ -34,6 +39,9 @@ impl std::fmt::Display for Expr {
             Expr::Variable(n) => write!(f, "(var {})", n.lexeme),
             Expr::Assign { name, value } => {
                 write!(f, "(= {} {value})", name.lexeme)
+            }
+            Expr::IfExpr { predicate, then_expr, else_expr } => {
+                write!(f, "(if-expr {predicate} {then_expr} {else_expr})")
             }
         }
     }

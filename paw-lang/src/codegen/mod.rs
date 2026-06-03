@@ -142,6 +142,17 @@ impl<'e> Codegen<'e> {
                 self.emitter.write_spaced("=");
                 self.emit_expr(value);
             }
+            
+            Expr::IfExpr { predicate, then_expr, else_expr } => {
+                self.emitter.write("if ");
+                self.emit_expr(predicate);
+
+                self.emitter.write_spaced("then");
+                self.emit_expr(then_expr);
+
+                self.emitter.write_spaced("else");
+                self.emit_expr(else_expr);
+            }
         }
     }
 
@@ -180,6 +191,7 @@ mod tests {
 
         cg.emit_program(&stmts);
         cg.finish().expect("io error");
+
         String::from_utf8(buf).expect("invalid utf-8")
     }
 
@@ -331,6 +343,28 @@ mod tests {
             compile("if x > 5 { y = 1 } else if x > 0 { y = 2 }"),
             "if x > 5 then\n\ty = 1\nelseif x > 0 then\n\ty = 2\nend\n"
         );
+    }
+
+    #[test]
+    fn if_expr_in_let() {
+        assert_eq!(
+            compile("let label = if score > 50 { \"Win\" } else { \"Loss\" }"),
+            "local label = if score > 50 then \"Win\" else \"Loss\"\n"
+        );
+    }
+
+    #[test]
+    fn if_expr_nested() {
+        assert_eq!(
+            compile("let x = if a { if b { 1 } else { 2 } } else { 3 }"),
+            "local x = if a then if b then 1 else 2 else 3\n"
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn if_expr_no_else_panics() {
+        compile("let x = if true { 1 }");
     }
 
     #[test]
