@@ -185,42 +185,48 @@ mod tests {
 
     #[test]
     fn literal_num() {
-        assert_eq!(compile("42"), "42\n");
+        assert_eq!(compile("let x = 42"), "local x = 42\n");
     }
 
     #[test]
     fn literal_string() {
-        assert_eq!(compile("\"hello\""), "\"hello\"\n");
+        assert_eq!(compile("let x = \"hello\""), "local x = \"hello\"\n");
     }
 
     #[test]
     fn binary_add() {
-        assert_eq!(compile("1 + 2"), "1 + 2\n");
+        assert_eq!(compile("let x = 1 + 2"), "local x = 1 + 2\n");
     }
 
     #[test]
     fn binary_neq() {
-        assert_eq!(compile("1 != 2"), "1 ~= 2\n");
+        assert_eq!(compile("let x = 1 != 2"), "local x = 1 ~= 2\n");
     }
 
     #[test]
     fn unary_not() {
-        assert_eq!(compile("!true"), "not true\n");
+        assert_eq!(compile("let x = !true"), "local x = not true\n");
     }
 
     #[test]
     fn unary_neg() {
-        assert_eq!(compile("-5"), "-5\n");
+        assert_eq!(compile("let x = -5"), "local x = -5\n");
     }
 
     #[test]
     fn grouping() {
-        assert_eq!(compile("(1 + 2)"), "(1 + 2)\n");
+        assert_eq!(compile("let x = (1 + 2)"), "local x = (1 + 2)\n");
     }
 
     #[test]
     fn nested_binary() {
-        assert_eq!(compile("1 + 2 * 3"), "1 + 2 * 3\n");
+        assert_eq!(compile("let x = 1 + 2 * 3"), "local x = 1 + 2 * 3\n");
+    }
+
+    #[test]
+    #[should_panic]
+    fn bare_expr_panics() {
+        compile("42");
     }
 
     #[test]
@@ -240,7 +246,7 @@ mod tests {
 
     #[test]
     fn variable_ref() {
-        assert_eq!(compile("x"), "x\n");
+        assert_eq!(compile("let y = x"), "local y = x\n");
     }
 
     #[test]
@@ -263,35 +269,51 @@ mod tests {
 
     #[test]
     fn logical_and_emits_word() {
-        assert_eq!(compile("true && false"), "true and false\n");
+        assert_eq!(compile("let x = true && false"), "local x = true and false\n");
     }
 
     #[test]
     fn logical_or_emits_word() {
-        assert_eq!(compile("true || false"), "true or false\n");
+        assert_eq!(compile("let x = true || false"), "local x = true or false\n");
     }
 
     #[test]
     fn logical_mixed() {
         assert_eq!(
-            compile("true || false && true"),
-            "true or false and true\n"
+            compile("let x = true || false && true"),
+            "local x = true or false and true\n"
         );
     }
 
     #[test]
     fn if_no_else() {
         assert_eq!(
-            compile("if true { 1 }"),
-            "if true then\n\t1\nend\n" // it's impossible, but whatever, I'll fix it.
+            compile("if true { x = 1 }"),
+            "if true then\n\tx = 1\nend\n"
         );
     }
 
     #[test]
     fn if_with_else() {
         assert_eq!(
-            compile("if true { 1 } else { 2 }"),
-            "if true then\n\t1\nelse\n\t2\nend\n" // same thing here as the previous one
+            compile("if true { x = 1 } else { x = 2 }"),
+            "if true then\n\tx = 1\nelse\n\tx = 2\nend\n"
+        );
+    }
+
+    #[test]
+    fn if_condition_expr() {
+        assert_eq!(
+            compile("if x > 0 { y = 1 }"),
+            "if x > 0 then\n\ty = 1\nend\n"
+        );
+    }
+
+    #[test]
+    fn if_nested() {
+        assert_eq!(
+            compile("if true { if false { x = 1 } }"),
+            "if true then\n\tif false then\n\t\tx = 1\n\tend\nend\n"
         );
     }
 
@@ -306,16 +328,16 @@ mod tests {
     #[test]
     fn else_if_emits_elseif() {
         assert_eq!(
-            compile("if true { 1 } else if false { 2 }"),
-            "if true then\n\t1\nelseif false then\n\t2\nend\n"
+            compile("if x > 5 { y = 1 } else if x > 0 { y = 2 }"),
+            "if x > 5 then\n\ty = 1\nelseif x > 0 then\n\ty = 2\nend\n"
         );
     }
 
     #[test]
     fn else_if_chain_emits_elseif() {
         assert_eq!(
-            compile("if true { 1 } else if false { 2 } else { 3 }"),
-            "if true then\n\t1\nelseif false then\n\t2\nelse\n\t3\nend\n"
+            compile("if x > 5 { y = 1 } else if x > 0 { y = 2 } else { y = 3 }"),
+            "if x > 5 then\n\ty = 1\nelseif x > 0 then\n\ty = 2\nelse\n\ty = 3\nend\n"
         );
     }
 }

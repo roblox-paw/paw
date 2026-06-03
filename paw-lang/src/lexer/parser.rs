@@ -43,6 +43,10 @@ impl Parser {
 		}
 	}
 
+	pub fn expression(&mut self) -> ParseResult<Expr> {
+		self.assignment()
+	}
+
 	fn declaration(&mut self) -> ParseResult<Statement> {
 		if self.match_token(Let) {
 			self.var_declaration(VarKind::Let)
@@ -124,11 +128,12 @@ impl Parser {
 
 	fn expression_statement(&mut self) -> ParseResult<Statement> {
 		let expr = self.expression()?;
-		Ok(Statement::Expression(expr))
-	}
-
-	fn expression(&mut self) -> ParseResult<Expr> {
-		self.assignment()
+		match &expr {
+			Assign { .. } => Ok(Statement::Expression(expr)),
+			_ => Err(ParseError::ExpressionHasNoEffect {
+				span: self.previous().span()
+			}),
+		}
 	}
 
 	fn assignment(&mut self) -> ParseResult<Expr> {
@@ -395,29 +400,35 @@ mod tests {
 
 	#[test]
 	fn test_arithmetic() {
-		assert!(parse_str("1 + 2 * 3").is_ok());
+		assert!(parse_str("let x = 1 + 2 * 3").is_ok());
 	}
 
 	#[test]
 	fn number_literal_ok() {
-		assert!(parse_str("42").is_ok());
+		assert!(parse_str("let x = 42").is_ok());
 	}
 
 	#[test]
 	fn grouped_expr_ok() {
-		assert!(parse_str("(1 + 2)").is_ok());
+		assert!(parse_str("let x = (1 + 2)").is_ok());
 	}
 
 	#[test]
 	fn unary_ok() {
-		assert!(parse_str("-5").is_ok());
-		assert!(parse_str("!true").is_ok());
+		assert!(parse_str("let x = -5").is_ok());
+		assert!(parse_str("let x = !true").is_ok());
 	}
 
 	#[test]
 	fn comparison_ok() {
-		assert!(parse_str("3 > 2").is_ok());
-		assert!(parse_str("1 <= 1").is_ok());
+		assert!(parse_str("let x = 3 > 2").is_ok());
+		assert!(parse_str("let x = 1 <= 1").is_ok());
+	}
+
+	#[test]
+	#[should_panic]
+	fn bare_expr_panics() {
+		parse_str("1 + 2").unwrap();
 	}
 
 	#[test]
@@ -448,35 +459,35 @@ mod tests {
 	fn incomplete_binary_panics() {
 		parse_str("1 +").unwrap();
 	}
-
+	
 	#[test]
 	fn and_ok() {
-		assert!(parse_str("true && false").is_ok());
+		assert!(parse_str("let x = true && false").is_ok());
 	}
 
 	#[test]
 	fn or_ok() {
-		assert!(parse_str("true || false").is_ok());
+		assert!(parse_str("let x = true || false").is_ok());
 	}
 
 	#[test]
 	fn and_chained_ok() {
-		assert!(parse_str("true && false && true").is_ok());
+		assert!(parse_str("let x = true && false && true").is_ok());
 	}
 
 	#[test]
 	fn or_chained_ok() {
-		assert!(parse_str("true || false || true").is_ok());
+		assert!(parse_str("let x = true || false || true").is_ok());
 	}
 
 	#[test]
 	fn or_and_precedence_ok() {
-		assert!(parse_str("true || false && true").is_ok());
+		assert!(parse_str("let x = true || false && true").is_ok());
 	}
 
 	#[test]
 	fn logical_with_comparison_ok() {
-		assert!(parse_str("1 < 2 && 3 > 2").is_ok());
+		assert!(parse_str("let x = 1 < 2 && 3 > 2").is_ok());
 	}
 
 	#[test]
@@ -493,17 +504,17 @@ mod tests {
 
 	#[test]
 	fn if_ok() {
-		assert!(parse_str("if true { 1 }").is_ok());
+		assert!(parse_str("if true { x = 1 }").is_ok());
 	}
 
 	#[test]
 	fn if_else_ok() {
-		assert!(parse_str("if true { 1 } else { 2 }").is_ok());
+		assert!(parse_str("if true { x = 1 } else { x = 2 }").is_ok());
 	}
 
 	#[test]
 	fn if_nested_ok() {
-		assert!(parse_str("if true { if false { 1 } }").is_ok());
+		assert!(parse_str("if true { if false { x = 1 } }").is_ok());
 	}
 
 	#[test]

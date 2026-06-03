@@ -135,6 +135,16 @@ pub enum ParseError {
         #[label("condition expected here, found '{{'")]
         span: SourceSpan,
     },
+
+    #[error("expression has no effect")]
+    #[diagnostic(
+        code(paw::parser::expression_has_no_effect),
+        help("only assignments and function calls can be used as statements")
+    )]
+    ExpressionHasNoEffect {
+        #[label("this expression does nothing")]
+        span: SourceSpan,
+    },
 }
 
 #[cfg(test)]

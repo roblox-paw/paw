@@ -46,12 +46,7 @@ mod tests {
 
     fn ast(src: &str) -> String {
         let tokens = Scanner::new(src).scan_tokens().expect("scan failed");
-        let stmts = Parser::new(tokens).parse().expect("parse failed");
-
-        match &stmts[0] {
-            crate::codegen::statements::Statement::Expression(e) => e.to_string(),
-            other => other.to_string(),
-        }
+        Parser::new(tokens).expression().expect("parse failed").to_string()
     }
 
     #[test]
@@ -133,6 +128,6 @@ mod tests {
     #[test]
     #[should_panic]
     fn assign_chained() {
-        ast("x = y = 3");
+        ast("x = y = 3 = 4");
     }
 }

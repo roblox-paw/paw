@@ -81,7 +81,8 @@ impl<'src> Scanner<'src> {
 			'&' => {
 				if self.char_match('&') {
 					self.add_token(And);
-				} else {
+				}
+				else {
 					return Err(LexError::SingleAmpersand { span: self.current_span() })
 				}
 			}
@@ -91,9 +92,11 @@ impl<'src> Scanner<'src> {
 					while self.peek() != '\n' && !self.is_at_end() {
 						self.advance();
 					}
-				} else if self.char_match('=') {
+				}
+				else if self.char_match('=') {
 					self.add_token(SlashEqual)
-				} else {
+				}
+				else {
 					self.add_token(Slash)
 				}
 			}
