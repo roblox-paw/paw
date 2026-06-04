@@ -1,0 +1,8 @@
+// --- Test
+let stats = {
+    ["Wins"] = 3,
+    ["Defeats"] = 1
+}
+
+// --- Expected
+// local stats = {["Wins"] = 3, ["Defeats"] = 1}

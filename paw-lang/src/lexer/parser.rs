@@ -5,7 +5,7 @@ use crate::core::{CompileErrors, ParseError};
 use super::{
 	TokenType, TokenType::*,
 	Token, LiteralValue,
-	expr::{Expr, Expr::*}
+	expr::{Expr, Expr::*, TableField, TableKey}
 };
 
 type ParseResult<T> = Result<T, ParseError>;
@@ -89,6 +89,9 @@ impl Parser {
 		else if self.match_token(Loop) {
 			self.loop_statement()
 		}
+		else if self.match_token(Return) {
+			self.return_statement()
+		}
 		else {
 			self.expression_statement()
 		}
@@ -148,7 +151,16 @@ impl Parser {
 	fn loop_statement(&mut self) -> ParseResult<Statement> {
 		let body = Box::from(self.block()?);
 		Ok(Statement::Loop(body))
-	} 
+	}
+
+	fn return_statement(&mut self) -> ParseResult<Statement> {
+		let value = if self.is_at_end() || self.peek().token_type == RightBrace {
+			None
+		} else {
+			Some(self.expression()?)
+		};
+		Ok(Statement::Return(value))
+	}
 	
 	fn expression_statement(&mut self) -> ParseResult<Statement> {
 		let expr = self.expression()?;
@@ -327,6 +339,28 @@ impl Parser {
 				result = IfExpr { predicate, then_expr, else_expr }
 			}
 
+			LeftBrace => {
+				self.advance();
+				let mut fields = vec![];
+
+				while !self.is_at_end() && self.peek().token_type != RightBrace {
+					fields.push(self.table_field()?);
+
+					if self.match_token(Comma) {
+						continue
+					}
+
+					if self.peek().token_type != RightBrace {
+						return Err(ParseError::TableExpectedComma {
+							span: self.previous().span()
+						});
+					}
+				}
+
+				self.consume_with(RightBrace, "add a closing '}' to end the table")?;
+				result = Table(fields)
+			}
+
 			LeftParen => {
 				self.advance();
 
@@ -353,12 +387,49 @@ impl Parser {
 		Ok(result)
 	}
 
+	fn table_field(&mut self) -> ParseResult<TableField> {
+		// !!! todo: table must have a great typechecker
+		// to verify that all keys share the same type.
+		// wrote this for myself, so I won't forget
+
+		// name = value
+		if self.peek().token_type == Identifier 
+			&& self.peek_next().token_type == Equal
+		{
+			let name = self.advance();
+			self.advance(); // consume '='
+
+			return Ok(TableField {
+				key: TableKey::Ident(name),
+				value: self.expression()?,
+			});
+		}
+
+		// [expr] = value
+		if self.peek().token_type == LeftBracket {
+			self.advance();
+			let key_expr = self.expression()?;
+
+			self.consume_with(RightBracket, "close the computed key with ']'")?;
+			self.consume_with(Equal, "a computed key needs '= value'")?;
+
+			return Ok(TableField {
+				key: TableKey::Computed(key_expr),
+				value: self.expression()?,
+			});
+		}
+
+		// value or [index] = value
+		let value = self.expression()?;
+		Ok(TableField { key: TableKey::None, value })
+	}
+
 	fn synchronize(&mut self) {
 		while !self.is_at_end() {
 			self.advance();
 			
 			match self.peek().token_type {
-				Let | Const | If | While | Loop => return,
+				Let | Const | If | While | Loop | Return => return,
 				_ => ()
 			}
 		}
@@ -419,6 +490,10 @@ impl Parser {
 
 	fn peek(&self) -> Token {
 		self.tokens[self.current].clone()
+	}
+
+	fn peek_next(&self) -> Token {
+		self.tokens[(self.current + 1).min(self.tokens.len() - 1)].clone()
 	}
 
 	fn previous(&self) -> Token {

@@ -1,8 +1,24 @@
 use super::*;
 
 #[derive(Debug)]
+pub enum TableKey {
+    Ident(Token),    // name = value
+    Computed(Expr),  // [expr] = value
+    None,            // value or [index] = value
+}
+
+#[derive(Debug)]
+pub struct TableField {
+    pub key: TableKey,
+    pub value: Expr,
+}
+
+#[derive(Debug)]
 pub enum Expr {
     Literal(LiteralValue),
+    Grouping(Box<Expr>),
+    Table(Vec<TableField>),
+
     Binary {
         left: Box<Expr>,
         operator: Token,
@@ -12,7 +28,7 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
-    Grouping(Box<Expr>),
+
     Variable(Token),
     Assign {
         name: Token,
@@ -29,13 +45,26 @@ impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Expr::Literal(v) => write!(f, "{v}"),
+            Expr::Grouping(e) => write!(f, "(group {e})"),
+            Expr::Table(fields) => {
+                write!(f, "(table")?;
+                for field in fields {
+                    match &field.key {
+                        TableKey::Ident(k) => write!(f, " {}={}", k.lexeme, field.value)?,
+                        TableKey::Computed(e) => write!(f, " [{e}]={}", field.value)?,
+                        TableKey::None => write!(f, " {}", field.value)?,
+                    }
+                }
+                write!(f, ")")
+            }
+
             Expr::Binary { left, operator, right } => {
                 write!(f, "({} {left} {right})", operator.lexeme)
             }
             Expr::Unary { operator, right } => {
                 write!(f, "({} {right})", operator.lexeme)
             }
-            Expr::Grouping(e) => write!(f, "(group {e})"),
+            
             Expr::Variable(n) => write!(f, "(var {})", n.lexeme),
             Expr::Assign { name, value } => {
                 write!(f, "(= {} {value})", name.lexeme)

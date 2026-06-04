@@ -156,6 +156,16 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
+    #[error("expected ',' or '}}' in table")]
+    #[diagnostic(
+        code(paw::parser::table_expected_comma),
+        help("separate table fields with ',' and close the table with '}}'")
+    )]
+    TableExpectedComma {
+        #[label("expected ',' or '}}' after this field")]
+        span: SourceSpan,
+    },
+
     #[error("expression has no effect")]
     #[diagnostic(
         code(paw::parser::expression_has_no_effect),

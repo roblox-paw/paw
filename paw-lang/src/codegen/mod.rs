@@ -2,7 +2,7 @@
 pub(crate) mod emitter;
 pub(crate) mod statements;
 
-use crate::lexer::{LiteralValue, expr::Expr, Token, TokenType};
+use crate::lexer::{LiteralValue, expr::Expr, expr::TableKey, Token, TokenType};
 use crate::codegen::{emitter::Emitter, statements::{Statement, VarKind}};
 
 use std::collections::HashMap;
@@ -79,6 +79,16 @@ impl<'e> Codegen<'e> {
                 self.emitter.writeln("end");
             }
 
+            Statement::Return(value) => {
+                self.emitter.emit_indent();
+                self.emitter.write("return");
+                if let Some(expr) = value {
+                    self.emitter.write(" ");
+                    self.emit_expr(expr);
+                }
+                self.emitter.newline();
+            }
+
             Statement::Loop(body) => {
                 self.emitter.emit_indent();
                 self.emitter.writeln("task.spawn(function()");
@@ -141,6 +151,36 @@ impl<'e> Codegen<'e> {
     fn emit_expr(&mut self, expr: &Expr) {
         match expr {
             Expr::Literal(v) => self.emit_literal(v),
+            Expr::Grouping(inner) => {
+                self.emitter.write("(");
+                self.emit_expr(inner);
+                self.emitter.write(")");
+            }
+
+            // todo: support multiline tables, right now tables emits specifically in oneline
+            Expr::Table(fields) => {
+                self.emitter.write("{");
+                for (i, field) in fields.iter().enumerate() {
+                    if i > 0 {
+                        self.emitter.write(", ");
+                    }
+                    match &field.key {
+                        TableKey::Ident(k) => {
+                            self.emitter.write(&k.lexeme);
+                            self.emitter.write_spaced("=");
+                        }
+                        TableKey::Computed(key_expr) => {
+                            self.emitter.write("[");
+                            self.emit_expr(key_expr);
+                            self.emitter.write("] = ");
+                        }
+                        TableKey::None => {}
+                    }
+                    self.emit_expr(&field.value);
+                }
+                self.emitter.write("}");
+            }
+
             Expr::Binary { left, operator, right } => {
                 self.emit_expr(left);
                 self.emitter.write_spaced(self.op(operator));
@@ -157,12 +197,6 @@ impl<'e> Codegen<'e> {
                 self.emit_expr(right);
             }
 
-            Expr::Grouping(inner) => {
-                self.emitter.write("(");
-                self.emit_expr(inner);
-                self.emitter.write(")");
-            }
-
             Expr::Variable(name) => {
                 self.emitter.write(&name.lexeme);
             }
@@ -172,7 +206,7 @@ impl<'e> Codegen<'e> {
                 self.emitter.write_spaced("=");
                 self.emit_expr(value);
             }
-            
+
             Expr::IfExpr { predicate, then_expr, else_expr } => {
                 self.emitter.write("if ");
                 self.emit_expr(predicate);
@@ -431,5 +465,84 @@ mod tests {
             compile("loop { x = x + 1 }"),
             "task.spawn(function()\n\twhile true do\n\t\tx = x + 1\n\tend\nend)\n"
         );
+    }
+
+    #[test]
+    fn table_empty() {
+        assert_eq!(compile("let t = {}"), "local t = {}\n");
+    }
+
+    #[test]
+    fn table_keyed() {
+        assert_eq!(
+            compile("let t = { x = 1, y = 2 }"),
+            "local t = {x = 1, y = 2}\n"
+        );
+    }
+
+    #[test]
+    fn table_positional() {
+        assert_eq!(
+            compile("let t = { 1, 2, 3 }"),
+            "local t = {1, 2, 3}\n"
+        );
+    }
+
+    #[test]
+    fn table_nested() {
+        assert_eq!(
+            compile("let t = { pos = { x = 1, y = 2 } }"),
+            "local t = {pos = {x = 1, y = 2}}\n"
+        );
+    }
+
+    #[test]
+    fn table_in_return() {
+        assert_eq!(
+            compile("return { ok = true }"),
+            "return {ok = true}\n"
+        );
+    }
+
+    #[test]
+    fn table_computed_string_key() {
+        assert_eq!(
+            compile("let t = { [\"name\"] = 3 }"),
+            "local t = {[\"name\"] = 3}\n"
+        );
+    }
+
+    #[test]
+    fn table_computed_expr_key() {
+        assert_eq!(
+            compile("let t = { [2 == 2] = 1 }"),
+            "local t = {[2 == 2] = 1}\n"
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn table_computed_unclosed_bracket_panics() {
+        compile("let t = { [\"x\" = 1 }");
+    }
+
+    #[test]
+    fn table_trailing_comma() {
+        assert_eq!(
+            compile("let t = { x = 1, y = 2, }"),
+            "local t = {x = 1, y = 2}\n"
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn table_missing_comma_panics() {
+        compile("let t = { x = 1 y = 2 }");
+    }
+
+    #[test]
+    #[should_panic]
+    fn table_unclosed_panics() {
+        compile("let t = { x = 1");
     }
 }

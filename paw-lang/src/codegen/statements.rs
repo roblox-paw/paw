@@ -26,6 +26,7 @@ pub enum Statement {
         condition: Expr,
         body: Box<Statement>,
     },
+    Return(Option<Expr>),
 }
 
 impl std::fmt::Display for VarKind {
@@ -62,6 +63,11 @@ impl std::fmt::Display for Statement {
             Statement::Loop(b) => write!(f, "(loop {b})"),
             Statement::While { condition, body } => {
                 write!(f, "(while {condition} {body})")
+            }
+
+            Statement::Return(v) => match v {
+                Some(e) => write!(f, "(return {e})"),
+                None => write!(f, "(return)"),
             }
         }
     }
