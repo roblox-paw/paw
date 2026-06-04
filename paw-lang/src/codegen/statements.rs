@@ -27,6 +27,8 @@ pub enum Statement {
         body: Box<Statement>,
     },
     Return(Option<Expr>),
+    Continue,
+    Break,
 }
 
 impl std::fmt::Display for VarKind {
@@ -69,6 +71,9 @@ impl std::fmt::Display for Statement {
                 Some(e) => write!(f, "(return {e})"),
                 None => write!(f, "(return)"),
             }
+
+            Statement::Continue => write!(f, "(continue)"),
+            Statement::Break => write!(f, "(break)"),
         }
     }
 }

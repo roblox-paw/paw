@@ -92,6 +92,12 @@ impl Parser {
 		else if self.match_token(Return) {
 			self.return_statement()
 		}
+		else if self.match_token(Continue) {
+			Ok(Statement::Continue)
+		}
+		else if self.match_token(Break) {
+			Ok(Statement::Break)
+		}
 		else {
 			self.expression_statement()
 		}
@@ -112,27 +118,37 @@ impl Parser {
 	fn if_statement(&mut self) -> ParseResult<Statement> {
 		if self.peek().token_type == LeftBrace || self.is_at_end() {
 			return Err(ParseError::IfMissingCondition {
-				span: self.peek().span()
+				span: self.peek().span(),
 			});
 		}
 
+		// condition for 'if' statement
 		let predicate = self.expression()?;
-		let then = Box::from(self.block()?);
 
-		let else_block = if self.match_token(Else) {
-			let stmt = if self.match_token(If) {
-				self.if_statement()?
-			}
-			else {
-				self.block()?
-			};
-			Some(Box::from(stmt))
+		let (then, else_block) = if self.match_token(Do) {
+			(Box::new(self.statement()?), None)
 		}
 		else {
-			None
+			let then = Box::new(self.block()?);
+			let else_block = self.else_statement()?;
+			(then, else_block)
 		};
 
 		Ok(Statement::If { predicate, then, else_block })
+	}
+
+	fn else_statement(&mut self) -> ParseResult<Option<Box<Statement>>> {
+		if !self.match_token(Else) {
+			return Ok(None)
+		}
+
+		let stmt = if self.match_token(If) {
+			self.if_statement()?
+		} else {
+			self.block()?
+		};
+
+		Ok(Some(Box::new(stmt)))
 	}
 
 	fn while_statement(&mut self) -> ParseResult<Statement> {
@@ -425,11 +441,12 @@ impl Parser {
 	}
 
 	fn synchronize(&mut self) {
-		while !self.is_at_end() {
+		while !self.is_at_end() { 
 			self.advance();
 			
 			match self.peek().token_type {
-				Let | Const | If | While | Loop | Return => return,
+				Let | Const | If | While | Loop 
+					| Return | Continue | Break => return,
 				_ => ()
 			}
 		}
@@ -650,5 +667,21 @@ mod tests {
 	#[should_panic]
 	fn if_missing_brace_panics() {
 		parse_str("if true 1").unwrap();
+	}
+
+	#[test]
+	fn continue_in_while_ok() {
+		assert!(parse_str("while true { continue }").is_ok());
+	}
+
+	#[test]
+	fn if_do_single_stmt_ok() {
+		assert!(parse_str("if x > 0 do return x").is_ok());
+	}
+
+	#[test]
+	#[should_panic]
+	fn if_do_with_else_panics() {
+		parse_str("if x > 0 do return x else { return 0 }").unwrap();
 	}
 }

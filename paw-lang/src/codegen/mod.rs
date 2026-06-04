@@ -118,6 +118,14 @@ impl<'e> Codegen<'e> {
                 
                 self.emitter.writeln("end");
             }
+
+            Statement::Continue => {
+                self.emitter.writeln("continue");
+            }
+
+            Statement::Break => {
+                self.emitter.writeln("break");
+            }
         }
     }
 
@@ -544,5 +552,21 @@ mod tests {
     #[should_panic]
     fn table_unclosed_panics() {
         compile("let t = { x = 1");
+    }
+
+    #[test]
+    fn if_do_single_stmt() {
+        assert_eq!(
+            compile("if x > 0 do return x"),
+            "if x > 0 then\n\treturn x\nend\n"
+        );
+    }
+
+    #[test]
+    fn continue_in_while() {
+        assert_eq!(
+            compile("while true { continue }"),
+            "while true do\n\tcontinue\nend\n"
+        );
     }
 }
