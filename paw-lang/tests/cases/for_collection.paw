@@ -1,0 +1,15 @@
+// --- Test
+for _, item in inventory {
+    x = item
+}
+for i in 0..10 {
+    x = i
+}
+
+// --- Expected
+for _, item in inventory do
+    x = item
+end
+for i = 0, 10 - 1 do
+    x = i
+end

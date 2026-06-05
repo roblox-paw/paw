@@ -26,6 +26,11 @@ pub enum Statement {
         condition: Expr,
         body: Box<Statement>,
     },
+    For {
+        ident: Vec<Token>,
+        iter: Expr,
+        body: Box<Statement>,
+    },
     Return(Option<Expr>),
     Continue,
     Break,
@@ -65,6 +70,15 @@ impl std::fmt::Display for Statement {
             Statement::Loop(b) => write!(f, "(loop {b})"),
             Statement::While { condition, body } => {
                 write!(f, "(while {condition} {body})")
+            }
+
+            Statement::For { ident, iter, .. } => {
+                let names: Vec<&str> = ident
+                    .iter()
+                    .map(|v| v.lexeme.as_str())
+                    .collect();
+
+                write!(f, "(for [{}] in {iter})", names.join(", "))
             }
 
             Statement::Return(v) => match v {

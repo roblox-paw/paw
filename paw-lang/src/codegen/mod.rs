@@ -119,13 +119,54 @@ impl<'e> Codegen<'e> {
                 self.emitter.writeln("end");
             }
 
-            Statement::Continue => {
-                self.emitter.writeln("continue");
+            Statement::For { ident, iter, body } => {
+                self.emitter.emit_indent();
+
+                if let Expr::Binary { operator, left, right } = iter {
+                    if operator.token_type == TokenType::DotDot {
+                        // ! todo: gotta add range inclusive pattern too (..=)
+                        // for i in start..end  -->  for i = start, end - 1 do
+                        self.emitter.write("for ");
+                        self.emitter.write(&ident[0].lexeme);
+                        self.emitter.write_spaced("=");
+
+                        self.emit_expr(left);
+                        self.emitter.write(", ");
+                        self.emit_expr(right);
+
+                        self.emitter.write(" - 1 do");
+                        self.emitter.newline();
+
+                        self.emitter.indent();
+                        self.emit_stmt(body);
+                        self.emitter.dedent();
+                        
+                        self.emitter.writeln("end");
+                        return
+                    }
+                }
+
+                self.emitter.write("for ");
+                for (i, var) in ident.iter().enumerate() {
+                    if i > 0 {
+                        self.emitter.write(", ");
+                    }
+                    self.emitter.write(&var.lexeme);
+                }
+                self.emitter.write_spaced("in");
+                self.emit_expr(iter);
+
+                self.emitter.write(" do");
+                self.emitter.newline();
+
+                self.emitter.indent();
+                self.emit_stmt(body);
+                self.emitter.dedent();
+                self.emitter.writeln("end");
             }
 
-            Statement::Break => {
-                self.emitter.writeln("break");
-            }
+            Statement::Continue => self.emitter.writeln("continue"),
+            Statement::Break => self.emitter.writeln("break"),
         }
     }
 
@@ -595,6 +636,30 @@ mod tests {
         assert_eq!(
             compile("while true { continue }"),
             "while true do\n\tcontinue\nend\n"
+        );
+    }
+
+    #[test]
+    fn for_range() {
+        assert_eq!(
+            compile("for i in 0..10 { x = i }"),
+            "for i = 0, 10 - 1 do\n\tx = i\nend\n"
+        );
+    }
+
+    #[test]
+    fn for_collection_one_var() {
+        assert_eq!(
+            compile("for item in inventory { x = item }"),
+            "for item in inventory do\n\tx = item\nend\n"
+        );
+    }
+
+    #[test]
+    fn for_collection_two_vars() {
+        assert_eq!(
+            compile("for i, item in inventory { x = item }"),
+            "for i, item in inventory do\n\tx = item\nend\n"
         );
     }
 }

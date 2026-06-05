@@ -89,6 +89,9 @@ impl Parser {
 		else if self.match_token(Loop) {
 			self.loop_statement()
 		}
+		else if self.match_token(For) {
+			self.for_statement()
+		}
 		else if self.match_token(Return) {
 			self.return_statement()
 		}
@@ -169,6 +172,26 @@ impl Parser {
 		Ok(Statement::Loop(body))
 	}
 
+	fn for_statement(&mut self) -> ParseResult<Statement> {
+		// todo: throw an error if var isn't identifier/underscore
+		if self.peek().token_type != Identifier {
+			return Err(ParseError::ForMissingVars {
+				span: self.peek().span(),
+			});
+		}
+
+		let mut ident = vec![self.advance()];
+		while self.match_token(Comma) {
+			ident.push(self.consume(Identifier)?);
+		}
+
+		self.consume_with(In, "expected 'in' here after identifier")?;
+		let iter = self.expression()?;
+
+		let body = Box::from(self.block()?);
+		Ok(Statement::For { ident, iter, body })
+	}
+
 	fn return_statement(&mut self) -> ParseResult<Statement> {
 		let value = if self.is_at_end() || self.peek().token_type == RightBrace {
 			None
@@ -228,7 +251,7 @@ impl Parser {
 	}
 
 	fn and(&mut self) -> ParseResult<Expr> {
-		let mut expr = self.equality()?;
+		let mut expr = self.range()?;
 
 		while self.match_token(And) {
 			let operator = self.previous();
@@ -242,6 +265,24 @@ impl Parser {
 		}
 
 		Ok(expr)
+	}
+
+	fn range(&mut self) -> ParseResult<Expr> {
+		let expr = self.equality()?;
+
+		if self.match_token(DotDot) {
+			let operator = self.previous();
+			let end = self.equality()?;
+
+			Ok(Binary {
+				left: Box::from(expr),
+				operator,
+				right: Box::from(end),
+			})
+		}
+		else {
+			Ok(expr)
+		}
 	}
 
 	fn equality(&mut self) -> ParseResult<Expr> {
@@ -324,7 +365,8 @@ impl Parser {
 				operator,
 				right: Box::from(rhs),
 			})
-		} else {
+		}
+		else {
 			self.primary()
 		}
 	}
@@ -451,7 +493,7 @@ impl Parser {
 			self.advance();
 			
 			match self.peek().token_type {
-				Let | Const | If | While | Loop |
+				Let | Const | If | While | Loop | For |
 				Return | Continue | Break => return,
 
 				_ => ()
@@ -690,5 +732,43 @@ mod tests {
 	#[should_panic]
 	fn if_do_with_else_panics() {
 		parse_str("if x > 0 do return x else { return 0 }").unwrap();
+	}
+
+	#[test]
+	fn for_range_ok() {
+		assert!(parse_str("for i in 0..10 { x = i }").is_ok());
+	}
+
+	#[test]
+	fn for_one_var_ok() {
+		assert!(parse_str("for item in inventory { x = item }").is_ok());
+	}
+
+	#[test]
+	fn for_two_vars_ok() {
+		assert!(parse_str("for i, item in inventory { x = item }").is_ok());
+	}
+
+	#[test]
+	fn for_wildcard_ok() {
+		assert!(parse_str("for _, item in inventory { x = item }").is_ok());
+	}
+
+	#[test]
+	#[should_panic]
+	fn for_missing_var_panics() {
+		parse_str("for in inventory { x = 1 }").unwrap();
+	}
+
+	#[test]
+	#[should_panic]
+	fn for_missing_in_panics() {
+		parse_str("for i inventory { x = 1 }").unwrap();
+	}
+
+	#[test]
+	#[should_panic]
+	fn for_missing_body_panics() {
+		parse_str("for i in inventory").unwrap();
 	}
 }

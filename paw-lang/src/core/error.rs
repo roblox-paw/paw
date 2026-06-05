@@ -69,6 +69,16 @@ pub enum LexError {
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic(severity(Error))]
 pub enum ParseError {
+    #[error("expected ',' or '}}' in table")]
+    #[diagnostic(
+        code(paw::parser::table_expected_comma),
+        help("separate table fields with ',' and close the table with '}}'")
+    )]
+    TableExpectedComma {
+        #[label("expected ',' or '}}' after this field")]
+        span: SourceSpan,
+    },
+
     #[error("constant variable requires an initializer")]
     #[diagnostic(code(paw::parser::const_requires_initializer))]
     ConstRequiresInitializer {
@@ -156,13 +166,13 @@ pub enum ParseError {
         span: SourceSpan,
     },
 
-    #[error("expected ',' or '}}' in table")]
+    #[error("for loop requires at least one binding")]
     #[diagnostic(
-        code(paw::parser::table_expected_comma),
-        help("separate table fields with ',' and close the table with '}}'")
+        code(paw::parser::for_invalid_syntax),
+        help("expected 'for <var(s)> in <expr> ...'")
     )]
-    TableExpectedComma {
-        #[label("expected ',' or '}}' after this field")]
+    ForMissingVars {
+        #[label("expected an identifier here")]
         span: SourceSpan,
     },
 
