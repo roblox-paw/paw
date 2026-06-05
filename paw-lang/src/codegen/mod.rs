@@ -2,7 +2,7 @@
 pub(crate) mod emitter;
 pub(crate) mod statements;
 
-use crate::lexer::{LiteralValue, expr::Expr, expr::TableKey, Token, TokenType};
+use crate::lexer::{LiteralValue, expr::{Expr, TableField, TableKey}, Token, TokenType};
 use crate::codegen::{emitter::Emitter, statements::{Statement, VarKind}};
 
 use std::collections::HashMap;
@@ -165,28 +165,41 @@ impl<'e> Codegen<'e> {
                 self.emitter.write(")");
             }
 
-            // todo: support multiline tables, right now tables emits specifically in oneline
-            Expr::Table(fields) => {
-                self.emitter.write("{");
-                for (i, field) in fields.iter().enumerate() {
-                    if i > 0 {
-                        self.emitter.write(", ");
-                    }
-                    match &field.key {
-                        TableKey::Ident(k) => {
-                            self.emitter.write(&k.lexeme);
-                            self.emitter.write_spaced("=");
-                        }
-                        TableKey::Computed(key_expr) => {
-                            self.emitter.write("[");
-                            self.emit_expr(key_expr);
-                            self.emitter.write("] = ");
-                        }
-                        TableKey::None => {}
-                    }
-                    self.emit_expr(&field.value);
+            Expr::Table { fields, multiline } => {
+                if fields.is_empty() {
+                    self.emitter.write("{}");
+                    return;
                 }
-                self.emitter.write("}");
+
+                if *multiline {
+                    self.emitter.write("{");
+                    self.emitter.newline();
+                    self.emitter.indent();
+
+                    for field in fields {
+                        self.emitter.emit_indent();
+                        self.emit_table_key(field);
+                        self.emit_expr(&field.value);
+
+                        self.emitter.write(",");
+                        self.emitter.newline();
+                    }
+
+                    self.emitter.dedent();
+                    self.emitter.emit_indent();
+                    self.emitter.write("}");
+                }
+                else {
+                    self.emitter.write("{");
+                    for (i, field) in fields.iter().enumerate() {
+                        if i > 0 {
+                            self.emitter.write(", ");
+                        }
+                        self.emit_table_key(field);
+                        self.emit_expr(&field.value);
+                    }
+                    self.emitter.write("}");
+                }
             }
 
             Expr::Binary { left, operator, right } => {
@@ -236,6 +249,21 @@ impl<'e> Codegen<'e> {
             LiteralValue::True => self.emitter.write("true"),
             LiteralValue::False => self.emitter.write("false"),
             LiteralValue::Nil => self.emitter.write("nil"),
+        }
+    }
+
+    fn emit_table_key(&mut self, field: &TableField) {
+        match &field.key {
+            TableKey::Ident(k) => {
+                self.emitter.write(&k.lexeme);
+                self.emitter.write_spaced("=");
+            }
+            TableKey::Computed(key_expr) => {
+                self.emitter.write("[");
+                self.emit_expr(key_expr);
+                self.emitter.write("] = ");
+            }
+            TableKey::None => {}
         }
     }
 

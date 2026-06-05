@@ -4,6 +4,6 @@ let y = 2
 let pos = {x, y}
 
 // --- Expected
-// local x = 1
-// local y = 2
-// local pos = {x, y}
+local x = 1
+local y = 2
+local pos = {x, y}

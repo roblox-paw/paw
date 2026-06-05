@@ -5,4 +5,7 @@ let stats = {
 }
 
 // --- Expected
-// local stats = {["Wins"] = 3, ["Defeats"] = 1}
+local stats = {
+    ["Wins"] = 3,
+    ["Defeats"] = 1,
+}

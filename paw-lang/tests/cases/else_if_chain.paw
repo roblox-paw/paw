@@ -8,10 +8,10 @@ if x > 10 {
 }
 
 // --- Expected
-// if x > 10 then
-// 	y = 3
-// elseif x > 5 then
-// 	y = 2
-// else
-// 	y = 1
-// end
+if x > 10 then
+	y = 3
+elseif x > 5 then
+	y = 2
+else
+	y = 1
+end

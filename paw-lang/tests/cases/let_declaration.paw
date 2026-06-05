@@ -3,5 +3,5 @@ let x = 5
 let y = x
 
 // --- Expected
-// local x = 5
-// local y = x
+local x = 5
+local y = x

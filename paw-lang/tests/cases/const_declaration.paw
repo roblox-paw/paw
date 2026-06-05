@@ -3,5 +3,5 @@ const MAX = 100
 const NAME = "paw"
 
 // --- Expected
-// const MAX = 100
-// const NAME = "paw"
+const MAX = 100
+const NAME = "paw"

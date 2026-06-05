@@ -357,9 +357,15 @@ impl Parser {
 
 			LeftBrace => {
 				self.advance();
+				let brace_line = self.previous().line;
+
 				let mut fields = vec![];
+				let mut multiline = false;
 
 				while !self.is_at_end() && self.peek().token_type != RightBrace {
+					if self.peek().line != brace_line {
+						multiline = true;
+					}
 					fields.push(self.table_field()?);
 
 					if self.match_token(Comma) {
@@ -374,7 +380,7 @@ impl Parser {
 				}
 
 				self.consume_with(RightBrace, "add a closing '}' to end the table")?;
-				result = Table(fields)
+				result = Table { fields, multiline }
 			}
 
 			LeftParen => {
@@ -445,8 +451,9 @@ impl Parser {
 			self.advance();
 			
 			match self.peek().token_type {
-				Let | Const | If | While | Loop 
-					| Return | Continue | Break => return,
+				Let | Const | If | While | Loop |
+				Return | Continue | Break => return,
+
 				_ => ()
 			}
 		}

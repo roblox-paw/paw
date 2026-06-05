@@ -1,0 +1,10 @@
+// --- Test
+// inspired by odin (i just fully took the idea lol)
+const x = 1
+if x > 3 do return
+
+// --- Expected
+const x = 1
+if x > 3 then
+    return
+end

@@ -95,24 +95,20 @@ mod tests {
         let mut in_expected = false;
 
         for line in contents.lines() {
-            if line.starts_with("// --- Test") {
+            if line.starts_with("// ---") {
+                if line.starts_with("// --- Expected") {
+                    in_expected = true;
+                }
                 continue;
             }
 
-            if line.starts_with("// --- Expected") {
-                in_expected = true;
+            if line.starts_with("//") {
                 continue;
             }
 
             if in_expected {
-                if let Some(stripped) = line.strip_prefix("// ") {
-                    expected_lines.push(stripped.to_string());
-                } 
-                else if line == "//" {
-                    expected_lines.push(String::new());
-                }
-            }
-            else {
+                expected_lines.push(line.to_string());
+            } else {
                 source_lines.push(line.to_string());
             }
         }

@@ -117,6 +117,7 @@ pub struct Token {
 	pub literal: Option<LiteralValue>,
 	pub token_type: TokenType,
 	pub offset: u32,
+	pub line: u32,
 }
 
 impl Token {

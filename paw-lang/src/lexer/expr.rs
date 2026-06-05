@@ -17,7 +17,10 @@ pub struct TableField {
 pub enum Expr {
     Literal(LiteralValue),
     Grouping(Box<Expr>),
-    Table(Vec<TableField>),
+    Table {
+        fields: Vec<TableField>,
+        multiline: bool,
+    },
 
     Binary {
         left: Box<Expr>,
@@ -46,7 +49,8 @@ impl std::fmt::Display for Expr {
         match self {
             Expr::Literal(v) => write!(f, "{v}"),
             Expr::Grouping(e) => write!(f, "(group {e})"),
-            Expr::Table(fields) => {
+            
+            Expr::Table { fields, .. } => {
                 write!(f, "(table")?;
                 for field in fields {
                     match &field.key {

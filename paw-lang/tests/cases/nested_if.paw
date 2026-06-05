@@ -6,8 +6,8 @@ if a {
 }
 
 // --- Expected
-// if a then
-// 	if b then
-// 		x = 1
-// 	end
-// end
+if a then
+	if b then
+		x = 1
+	end
+end

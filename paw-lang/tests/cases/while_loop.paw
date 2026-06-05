@@ -4,6 +4,6 @@ while x < 10 {
 }
 
 // --- Expected
-// while x < 10 do
-// 	x = x + 1
-// end
+while x < 10 do
+	x = x + 1
+end

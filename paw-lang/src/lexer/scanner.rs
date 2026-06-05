@@ -41,6 +41,7 @@ impl<'src> Scanner<'src> {
 			lexeme: String::new(),
 			literal: None,
 			offset: self.byte_offset(self.current) as u32,
+			line: self.line as u32,
 		});
 
 		if !errors.is_empty() {
@@ -131,6 +132,7 @@ impl<'src> Scanner<'src> {
 			lexeme,
 			literal,
 			offset: self.byte_offset(self.start) as u32,
+			line: self.line as u32,
 		})
 	}
 

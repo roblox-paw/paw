@@ -4,8 +4,8 @@ loop {
 }
 
 // --- Expected
-// task.spawn(function()
-// 	while true do
-// 		x = x + 1
-// 	end
-// end)
+task.spawn(function()
+	while true do
+		x = x + 1
+	end
+end)
