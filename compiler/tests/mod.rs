@@ -53,7 +53,7 @@ mod tests {
 
         let (source, expected) = split_case(&contents, path)?;
 
-        let got = paw_lang::compile(&source)
+        let got = compiler::compile(&source)
             .map_err(|e| format!("{}: compile error:\n{e}", path.display()))?;
 
         let got_lines: Vec<&str> = got.lines().collect();

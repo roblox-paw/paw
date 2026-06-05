@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "paw-lang",
+    "compiler",
 ]
 resolver = "2"
 
