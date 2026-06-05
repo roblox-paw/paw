@@ -29,6 +29,7 @@ pub enum Statement {
     For {
         ident: Vec<Token>,
         iter: Expr,
+        step: Option<Expr>,
         body: Box<Statement>,
     },
     Return(Option<Expr>),

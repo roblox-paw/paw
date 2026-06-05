@@ -188,8 +188,12 @@ impl Parser {
 		self.consume_with(In, "expected 'in' here after identifier")?;
 		let iter = self.expression()?;
 
+		let step = self.match_token(Comma)
+			.then(|| self.expression())
+			.transpose()?;
+
 		let body = Box::from(self.block()?);
-		Ok(Statement::For { ident, iter, body })
+		Ok(Statement::For { ident, iter, step, body })
 	}
 
 	fn return_statement(&mut self) -> ParseResult<Statement> {
@@ -270,7 +274,7 @@ impl Parser {
 	fn range(&mut self) -> ParseResult<Expr> {
 		let expr = self.equality()?;
 
-		if self.match_token(DotDot) {
+		if self.match_tokens(&[DotDot, DotDotEqual]) {
 			let operator = self.previous();
 			let end = self.equality()?;
 
@@ -737,6 +741,26 @@ mod tests {
 	#[test]
 	fn for_range_ok() {
 		assert!(parse_str("for i in 0..10 { x = i }").is_ok());
+	}
+
+	#[test]
+	fn for_range_inclusive_ok() {
+		assert!(parse_str("for i in 0..=10 { x = i }").is_ok());
+	}
+
+	#[test]
+	fn for_range_step_ok() {
+		assert!(parse_str("for i in 0..10, 2 { x = i }").is_ok());
+	}
+
+	#[test]
+	fn for_range_inclusive_step_ok() {
+		assert!(parse_str("for i in 0..=10, 2 { x = i }").is_ok());
+	}
+
+	#[test]
+	fn for_range_negative_step_ok() {
+		assert!(parse_str("for i in 5..0, -1 { x = i }").is_ok());
 	}
 
 	#[test]

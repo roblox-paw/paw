@@ -31,7 +31,7 @@ pub enum TokenType {
 	And, // and -> &&
     Colon, ColonColon,
     Arrow, FatArrow,
-    Dot, DotDot,
+    Dot, DotDot, DotDotEqual,
 
     // optional
     Question, QuestionDot, 

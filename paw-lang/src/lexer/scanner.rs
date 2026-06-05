@@ -72,7 +72,17 @@ impl<'src> Scanner<'src> {
 			'<' => self.match_token('=', LessEqual, Less),
 			'>' => self.match_token('=', GreaterEqual, Greater),
             
-			'.' => self.match_token('.', DotDot, Dot),
+			'.' => {
+				if !self.char_match('.') {
+					self.add_token(Dot) // .
+				}
+				else if self.char_match('=') { 
+					self.add_token(DotDotEqual) // ..=
+				}
+				else {
+					self.add_token(DotDot) // ..
+				}
+			}
 			':' => self.match_token(':', ColonColon, Colon),
 			'|' => self.match_token('|', Or, Pipe),
             
@@ -82,10 +92,12 @@ impl<'src> Scanner<'src> {
 
 			'&' => {
 				if self.char_match('&') {
-					self.add_token(And);
+					self.add_token(And)
 				}
 				else {
-					return Err(LexError::SingleAmpersand { span: self.current_span() })
+					return Err(LexError::SingleAmpersand {
+						span: self.current_span()
+					});
 				}
 			}
             
@@ -114,7 +126,7 @@ impl<'src> Scanner<'src> {
 			_ => {
 				return Err(LexError::UnexpectedChar {
 					ch: c, span: self.current_span()
-				})
+				});
 			}
 		}
 

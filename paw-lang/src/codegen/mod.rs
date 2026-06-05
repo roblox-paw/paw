@@ -119,13 +119,15 @@ impl<'e> Codegen<'e> {
                 self.emitter.writeln("end");
             }
 
-            Statement::For { ident, iter, body } => {
+            Statement::For { ident, iter, step, body } => {
                 self.emitter.emit_indent();
 
                 if let Expr::Binary { operator, left, right } = iter {
-                    if operator.token_type == TokenType::DotDot {
-                        // ! todo: gotta add range inclusive pattern too (..=)
-                        // for i in start..end  -->  for i = start, end - 1 do
+                    let is_range = 
+                        operator.token_type == TokenType::DotDot || 
+                        operator.token_type == TokenType::DotDotEqual;
+
+                    if is_range {
                         self.emitter.write("for ");
                         self.emitter.write(&ident[0].lexeme);
                         self.emitter.write_spaced("=");
@@ -134,13 +136,23 @@ impl<'e> Codegen<'e> {
                         self.emitter.write(", ");
                         self.emit_expr(right);
 
-                        self.emitter.write(" - 1 do");
+                        // '..=' inclusive, so no adjustment for it, only for '..'
+                        if operator.token_type == TokenType::DotDot {
+                            self.emitter.write(" - 1");
+                        }
+
+                        if let Some(s) = step {
+                            self.emitter.write(", ");
+                            self.emit_expr(s);
+                        }
+
+                        self.emitter.write(" do");
                         self.emitter.newline();
 
                         self.emitter.indent();
                         self.emit_stmt(body);
                         self.emitter.dedent();
-                        
+
                         self.emitter.writeln("end");
                         return
                     }

@@ -1,0 +1,9 @@
+// --- Test
+for i in 0..=5 {
+    let x = i
+}
+
+// --- Expected
+for i = 0, 5 do
+    local x = i
+end
