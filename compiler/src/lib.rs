@@ -17,21 +17,31 @@ struct SourcedErrors<E: Diagnostic + Send + Sync + 'static> {
     errors: Vec<E>,
 }
 
-/// Compile Paw source, returning errors as miette `Report` (with source context for rendering).
 pub fn compile_report(src: &str, file_name: &str) -> Result<String, Report> {
     let named = NamedSource::new(file_name, src.to_string());
 
-    let tokens = Scanner::new(src).scan_tokens().map_err(|e| {
-        Report::new(SourcedErrors { src: named.clone(), errors: e.errors })
-    })?;
+    let tokens = Scanner::new(src)
+        .scan_tokens()
+        .map_err(|e| {
+            Report::new(SourcedErrors {
+                src: named.clone(),
+                errors: e.errors
+            })
+        })?;
 
-    let stmts = Parser::new(tokens).parse().map_err(|e| {
-        Report::new(SourcedErrors { src: named, errors: e.errors })
-    })?;
+    let stmts = Parser::new(tokens)
+        .parse()
+        .map_err(|e| {
+            Report::new(SourcedErrors {
+                src: named,
+                errors: e.errors
+            })
+        })?;
 
     let mut buf = Vec::new();
     let emitter = Emitter::new(&mut buf);
     let mut cg = Codegen::new(emitter);
+
     cg.emit_program(&stmts);
     cg.finish().map_err(|e| Report::msg(e.to_string()))?;
 

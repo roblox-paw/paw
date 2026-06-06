@@ -173,16 +173,9 @@ impl Parser {
 	}
 
 	fn for_statement(&mut self) -> ParseResult<Statement> {
-		// todo: throw an error if var isn't identifier/underscore
-		if self.peek().token_type != Identifier {
-			return Err(ParseError::ForMissingVars {
-				span: self.peek().span(),
-			});
-		}
-
-		let mut ident = vec![self.advance()];
+		let mut ident = vec![self.expect_for_var()?];
 		while self.match_token(Comma) {
-			ident.push(self.consume(Identifier)?);
+			ident.push(self.expect_for_var()?);
 		}
 
 		self.consume_with(In, "expected 'in' here after identifier")?;
@@ -197,11 +190,11 @@ impl Parser {
 	}
 
 	fn return_statement(&mut self) -> ParseResult<Statement> {
-		let value = if self.is_at_end() || self.peek().token_type == RightBrace {
-			None
-		} else {
-			Some(self.expression()?)
-		};
+		let has_value = !self.is_at_end() && self.peek().token_type != RightBrace;
+		let value = has_value
+			.then(|| self.expression())
+			.transpose()?;
+		
 		Ok(Statement::Return(value))
 	}
 	
@@ -490,6 +483,15 @@ impl Parser {
 		// value or [index] = value
 		let value = self.expression()?;
 		Ok(TableField { key: TableKey::None, value })
+	}
+
+	fn expect_for_var(&mut self) -> ParseResult<Token> {
+		if self.is_at_end() || self.peek().token_type == In {
+			return Err(ParseError::ForMissingVars {
+				span: self.peek().span()
+			});
+		}
+		self.consume_with(Identifier, "for loop variables must be identifiers")
 	}
 
 	fn synchronize(&mut self) {
